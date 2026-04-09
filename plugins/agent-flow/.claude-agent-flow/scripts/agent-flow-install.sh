@@ -22,6 +22,7 @@ SOURCE_BRANCH="main"
 SCOPE=""
 AUTO_UPDATE=false
 PLUGIN_DIR=""
+SKIP_PERMISSIONS=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --scope) [[ $# -lt 2 ]] && { echo "Error: --scope requires a value" >&2; exit 1; }; SCOPE="$2"; shift 2 ;;
     --auto-update) AUTO_UPDATE=true; shift ;;
     --plugin-dir) [[ $# -lt 2 ]] && { echo "Error: --plugin-dir requires a value" >&2; exit 1; }; PLUGIN_DIR="$2"; shift 2 ;;
+    --skip-permissions) SKIP_PERMISSIONS=true; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -115,6 +117,7 @@ fi
 echo "  Mode:    $(if $UPDATE_MODE; then echo "Update"; else echo "Install"; fi)"
 echo "  Scope:   $SCOPE"
 if $AUTO_UPDATE; then echo "  Auto-update: enabled"; fi
+echo "  Permissions: $(if [[ "$SKIP_PERMISSIONS" == true ]]; then echo "skipped (--skip-permissions)"; else echo "installed"; fi)"
 echo ""
 
 # ── Detect scope change on re-run ──
@@ -316,9 +319,13 @@ execute_merge() {
         while IFS= read -r k; do
           [[ -n "$k" ]] && key_args+=(--managed-key "$k")
         done <<< "$keys"
+        local merge_args=("$source_file" "$target_file" "${key_args[@]+"${key_args[@]}"}")
+        if [[ "$SKIP_PERMISSIONS" == true ]]; then
+          merge_args+=(--skip-permissions)
+        fi
         local tmp_merge
         tmp_merge=$(mktemp)
-        if bash "$merge_script" "$source_file" "$target_file" "${key_args[@]+"${key_args[@]}"}" > "$tmp_merge"; then
+        if bash "$merge_script" "${merge_args[@]}" > "$tmp_merge"; then
           mv "$tmp_merge" "$target_file"
         else
           rm -f "$tmp_merge"
@@ -390,8 +397,11 @@ process_merge_files
 if [[ "$SCOPE" != "sandbox" ]]; then
   SETTINGS_FILE="$TARGET_DIR/.claude/settings.json"
   if [[ -f "$SETTINGS_FILE" ]]; then
-    # Derive marketplace ID from SOURCE_REPO (owner/repo -> owner-repo)
-    MARKETPLACE_ID="${SOURCE_REPO//\//-}"
+    # Derive marketplace ID from SOURCE_REPO (owner/repo -> repo name)
+    MARKETPLACE_ID="${SOURCE_REPO##*/}"
+    if [[ -z "$MARKETPLACE_ID" ]]; then
+      echo "  [warn] could not derive marketplace ID from SOURCE_REPO='$SOURCE_REPO' — plugin registration skipped" >&2
+    else
     # Read plugin name from plugin.json
     PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
     if [[ -f "$PLUGIN_JSON" ]]; then
@@ -399,6 +409,15 @@ if [[ "$SCOPE" != "sandbox" ]]; then
     else
       AF_PLUGIN_NAME="agent-flow"
     fi
+
+    # Migration: remove old incorrect plugin key (owner-repo format) if it exists
+    OLD_MARKETPLACE_ID="${SOURCE_REPO//\//-}"
+    OLD_PLUGIN_KEY="${AF_PLUGIN_NAME}@${OLD_MARKETPLACE_ID}"
+    if jq -e --arg key "$OLD_PLUGIN_KEY" '.enabledPlugins[$key]' "$SETTINGS_FILE" >/dev/null 2>&1; then
+      jq --arg key "$OLD_PLUGIN_KEY" 'del(.enabledPlugins[$key])' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+      echo "  [migrate] removed old plugin key: $OLD_PLUGIN_KEY"
+    fi
+
     jq --arg mid "$MARKETPLACE_ID" --arg repo "$SOURCE_REPO" --arg pname "$AF_PLUGIN_NAME" '
       .extraKnownMarketplaces //= {} |
       .enabledPlugins //= {} |
@@ -406,6 +425,7 @@ if [[ "$SCOPE" != "sandbox" ]]; then
       .enabledPlugins[$pname + "@" + $mid] = true
     ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     echo "  [inject] $AF_PLUGIN_NAME@$MARKETPLACE_ID plugin registration"
+    fi
 
     # Plugin modes: all _agentFlow hooks are served by hooks/hooks.json — strip them from settings.json
     if command -v jq &>/dev/null; then
@@ -452,6 +472,15 @@ if [[ "$SCOPE" == "plugin+github" || "$SCOPE" == "sandbox" ]]; then
     fi
   else
     echo "  [warn] No workflows directory found at $WF_SOURCE" >&2
+  fi
+fi
+
+# Capture target's existing allows before sandbox copy overwrites them
+PRE_SANDBOX_ALLOWS=""
+if [[ "$SCOPE" == "sandbox" && "$SKIP_PERMISSIONS" == true ]]; then
+  SANDBOX_SETTINGS_PRE="$TARGET_DIR/.claude/settings.json"
+  if [[ -f "$SANDBOX_SETTINGS_PRE" ]]; then
+    PRE_SANDBOX_ALLOWS=$(jq -c '.permissions.allow // []' "$SANDBOX_SETTINGS_PRE" 2>/dev/null || echo "[]")
   fi
 fi
 
@@ -524,7 +553,7 @@ if [[ "$SCOPE" == "sandbox" ]]; then
 
   # Remove agent-flow plugin from enabledPlugins — sandbox uses vendored local code
   SANDBOX_SETTINGS="$TARGET_DIR/.claude/settings.json"
-  SB_MARKETPLACE_ID="${SOURCE_REPO//\//-}"
+  SB_MARKETPLACE_ID="${SOURCE_REPO##*/}"
   SB_PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
   if [[ -f "$SB_PLUGIN_JSON" ]]; then
     SB_PLUGIN_NAME=$(jq -r '.name' "$SB_PLUGIN_JSON")
@@ -532,9 +561,28 @@ if [[ "$SCOPE" == "sandbox" ]]; then
     SB_PLUGIN_NAME="agent-flow"
   fi
   SB_PLUGIN_KEY="${SB_PLUGIN_NAME}@${SB_MARKETPLACE_ID}"
-  if [[ -f "$SANDBOX_SETTINGS" ]] && jq -e --arg key "$SB_PLUGIN_KEY" '.enabledPlugins[$key]' "$SANDBOX_SETTINGS" >/dev/null 2>&1; then
+  if [[ -n "$SB_MARKETPLACE_ID" ]] && [[ -f "$SANDBOX_SETTINGS" ]] && jq -e --arg key "$SB_PLUGIN_KEY" '.enabledPlugins[$key]' "$SANDBOX_SETTINGS" >/dev/null 2>&1; then
     jq --arg key "$SB_PLUGIN_KEY" 'del(.enabledPlugins[$key])' "$SANDBOX_SETTINGS" > "$SANDBOX_SETTINGS.tmp" && mv "$SANDBOX_SETTINGS.tmp" "$SANDBOX_SETTINGS"
     echo "  [sandbox] removed $SB_PLUGIN_KEY from enabledPlugins (local code takes precedence)"
+  fi
+
+  # Strip source allow rules from sandbox-copied settings.json when --skip-permissions is active
+  # Restore any allows the target had before the sandbox copy overwrote it
+  if [[ "$SKIP_PERMISSIONS" == true ]]; then
+    SANDBOX_SETTINGS="$TARGET_DIR/.claude/settings.json"
+    if [[ -f "$SANDBOX_SETTINGS" ]]; then
+      if [[ -n "${PRE_SANDBOX_ALLOWS:-}" && "$PRE_SANDBOX_ALLOWS" != "[]" ]]; then
+        # Restore pre-existing target allows (captured before sandbox copy)
+        jq --argjson allows "$PRE_SANDBOX_ALLOWS" '.permissions.allow = $allows' \
+          "$SANDBOX_SETTINGS" > "$SANDBOX_SETTINGS.tmp" \
+          && mv "$SANDBOX_SETTINGS.tmp" "$SANDBOX_SETTINGS"
+        echo "  [sandbox] restored pre-existing permissions.allow (--skip-permissions)"
+      else
+        jq '.permissions.allow = []' "$SANDBOX_SETTINGS" > "$SANDBOX_SETTINGS.tmp" \
+          && mv "$SANDBOX_SETTINGS.tmp" "$SANDBOX_SETTINGS"
+        echo "  [sandbox] stripped permissions.allow (--skip-permissions)"
+      fi
+    fi
   fi
 
   echo "Sandbox mode: all files vendored into repo"

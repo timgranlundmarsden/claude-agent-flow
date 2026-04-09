@@ -24,6 +24,7 @@ SCOPE=""
 AUTO_UPDATE=false
 PLUGIN_NAME="agent-flow"
 LOCAL_PATH=""
+SKIP_PERMISSIONS=false
 
 # ── Parse arguments ──
 while [[ $# -gt 0 ]]; do
@@ -33,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     --source-repo) [[ $# -lt 2 ]] && { echo "Error: --source-repo requires a value" >&2; exit 1; }; SOURCE_REPO="$2"; shift 2 ;;
     --source-branch) [[ $# -lt 2 ]] && { echo "Error: --source-branch requires a value" >&2; exit 1; }; SOURCE_BRANCH="$2"; shift 2 ;;
     --local) if [[ $# -ge 2 && "$2" != --* ]]; then LOCAL_PATH="$2"; shift 2; else LOCAL_PATH="__auto__"; shift; fi ;;
+    --skip-permissions) SKIP_PERMISSIONS=true; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -109,6 +111,9 @@ if [[ -f ".claude-agent-flow/scripts/agent-flow-install.sh" ]]; then
   if $AUTO_UPDATE; then
     INSTALL_ARGS+=(--auto-update)
   fi
+  if [[ "$SKIP_PERMISSIONS" == true ]]; then
+    INSTALL_ARGS+=(--skip-permissions)
+  fi
   # Forward --plugin-dir when running in local mode so the installed script
   # reads from the updated source rather than the already-installed copy
   if [[ -n "$LOCAL_PATH" ]]; then
@@ -157,7 +162,7 @@ echo ""
 # ── Step 2: Plugin install (if claude CLI is available) ──
 if command -v claude &>/dev/null && [[ -z "$LOCAL_PATH" ]]; then
   echo "Claude CLI detected — installing plugin from marketplace..."
-  MARKETPLACE_ID="timgranlundmarsden-claude-agent-flow"
+  MARKETPLACE_ID="${SOURCE_REPO##*/}"
 
   if claude plugin marketplace add "$SOURCE_REPO" 2>/dev/null; then
     echo "Plugin registered in marketplace."
@@ -199,12 +204,8 @@ else
   }
   trap cleanup EXIT
 
-  if command -v gh &>/dev/null; then
-    gh repo clone "$SOURCE_REPO" "$CLONE_DIR" -- --depth 1 --branch "$SOURCE_BRANCH"
-  else
-    git clone --depth 1 --branch "$SOURCE_BRANCH" \
-      "https://github.com/${SOURCE_REPO}.git" "$CLONE_DIR"
-  fi
+  git clone --depth 1 --branch "$SOURCE_BRANCH" \
+    "https://github.com/${SOURCE_REPO}.git" "$CLONE_DIR"
 
   PLUGIN_DIR="$CLONE_DIR/plugins/$PLUGIN_NAME"
 fi
@@ -225,6 +226,9 @@ if [[ "$SOURCE_REPO" != "timgranlundmarsden/claude-agent-flow" ]]; then
 fi
 if [[ "$SOURCE_BRANCH" != "main" ]]; then
   FINAL_ARGS+=(--source-branch "$SOURCE_BRANCH")
+fi
+if [[ "$SKIP_PERMISSIONS" == true ]]; then
+  FINAL_ARGS+=(--skip-permissions)
 fi
 bash "$PLUGIN_DIR/.claude-agent-flow/scripts/agent-flow-install.sh" "${FINAL_ARGS[@]}"
 

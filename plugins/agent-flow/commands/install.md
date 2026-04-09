@@ -43,6 +43,24 @@ Use the following wording verbatim for the options:
 
 Store the chosen scope as a variable (one of: `plugin`, `plugin+github`, `sandbox`) for use in Step 2.
 
+### Step 1.7: Permission Overrides Consent
+
+Ask the user whether they want Agent Flow to install permission overrides using `AskUserQuestion`. Use this exact wording:
+
+> Agent Flow can install permission overrides in your project settings that allow common operations (git commands, file editing, code search) to run without prompting you each time. This makes the workflow smoother but means those tools won't ask for confirmation.
+>
+> Permission deny rules (which protect sensitive files like .env and credentials) are always installed regardless of your choice here.
+>
+> Would you like to install these permission overrides?
+
+Options:
+- **Yes, install permission overrides** — common operations run without prompting
+- **No, skip permission overrides** — you'll be prompted for each operation
+
+Store the result. If the user chose "No, skip permission overrides", set a variable `skip_permissions=true` and append `--skip-permissions` to all `agent-flow-install.sh` invocations in Step 2.
+
+**Always ask this question on every install/update** — do not remember or assume the previous answer.
+
 ### Step 2: Run the Install Script
 
 Run the appropriate command, passing the chosen scope:
@@ -57,6 +75,13 @@ bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope>
 bash .claude-agent-flow/scripts/agent-flow-install.sh --update --scope <chosen_scope>
 ```
 
+If the user declined permission overrides in Step 1.7, append `--skip-permissions` to the command. For example:
+```bash
+bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope> --skip-permissions
+```
+
+Similarly for all other invocation methods (curl-based and dynamic install). Append `--skip-permissions` to the curl/bash commands shown in Method 1 and Method 2 as well.
+
 The script auto-detects the project name from the repo folder. No `--project-name` flag needed.
 
 If `.claude-agent-flow/scripts/agent-flow-install.sh` doesn't exist locally (running in a repo that hasn't been bootstrapped yet), use the dynamic install script:
@@ -65,17 +90,17 @@ If `.claude-agent-flow/scripts/agent-flow-install.sh` doesn't exist locally (run
 ```bash
 SCOPE=$(jq -r '.scope // empty' .claude-agent-flow/sync-state.json 2>/dev/null)
 if [ -n "$SCOPE" ]; then
-  curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope "$SCOPE"
+  curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh -o /tmp/agent-flow-install.sh && bash /tmp/agent-flow-install.sh --scope "$SCOPE"
 else
   # If no scope found or file missing, prompt user to choose and run with their choice
   echo "No existing scope found. Choose a scope (plugin/plugin+github/sandbox) and run:"
-  echo "curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope <chosen_scope>"
+  echo "curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh -o /tmp/agent-flow-install.sh && bash /tmp/agent-flow-install.sh --scope <chosen_scope>"
 fi
 ```
 
 **Method 2: Direct install with chosen scope**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope <chosen_scope>
+curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh -o /tmp/agent-flow-install.sh && bash /tmp/agent-flow-install.sh --scope <chosen_scope>
 ```
 
 ### Step 3: Review and Commit

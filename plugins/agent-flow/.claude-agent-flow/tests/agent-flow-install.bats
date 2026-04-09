@@ -127,3 +127,82 @@ EOF
   assert_success
   [[ -f "$TARGET_DIR/.claude-agent-flow/sync-state.json" ]]
 }
+
+@test "9. marketplace ID uses repo name only (strips owner prefix with ##*/)" {
+  setup_git_repo "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/.claude"
+  echo '{"enabledPlugins":{},"extraKnownMarketplaces":{}}' > "$TARGET_DIR/.claude/settings.json"
+  write_install_manifest "$TARGET_DIR"
+
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+
+  # Check that enabledPlugins has correct key format: agent-flow@myrepo (not agent-flow@testowner-myrepo)
+  run jq -e '.enabledPlugins["agent-flow@myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_success
+
+  # Ensure old format is NOT present
+  run jq -e '.enabledPlugins["agent-flow@testowner-myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_failure
+}
+
+@test "10. migration removes old incorrect owner-repo key from enabledPlugins" {
+  setup_git_repo "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/.claude"
+  echo '{"enabledPlugins":{"agent-flow@testowner-myrepo":true},"extraKnownMarketplaces":{}}' > "$TARGET_DIR/.claude/settings.json"
+  write_install_manifest "$TARGET_DIR"
+
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+  [[ "$output" == *"[migrate] removed old plugin key"* ]]
+
+  # Old key should be gone
+  run jq -e '.enabledPlugins["agent-flow@testowner-myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_failure
+
+  # New key should be present
+  run jq -e '.enabledPlugins["agent-flow@myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_success
+}
+
+@test "11. migration is safe when old key is absent (clean install)" {
+  setup_git_repo "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/.claude"
+  echo '{"enabledPlugins":{},"extraKnownMarketplaces":{}}' > "$TARGET_DIR/.claude/settings.json"
+  write_install_manifest "$TARGET_DIR"
+
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+
+  # New key should be present
+  run jq -e '.enabledPlugins["agent-flow@myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_success
+}
+
+@test "12. migration is idempotent (second install run does not fail)" {
+  setup_git_repo "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/.claude"
+  echo '{"enabledPlugins":{},"extraKnownMarketplaces":{}}' > "$TARGET_DIR/.claude/settings.json"
+  write_install_manifest "$TARGET_DIR"
+
+  # First run
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+
+  # Second run should also succeed
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+
+  # New key should still be present
+  run jq -e '.enabledPlugins["agent-flow@myrepo"]' "$TARGET_DIR/.claude/settings.json"
+  assert_success
+}
+
+@test "13. marketplace registration skipped gracefully when settings.json absent" {
+  setup_git_repo "$TARGET_DIR"
+  write_install_manifest "$TARGET_DIR"
+
+  # No settings.json created - should skip registration without error
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo 'testowner/myrepo'"
+  assert_success
+}
