@@ -10,6 +10,10 @@ run_merge() {
   bash "$SCRIPT_DIR/merge-settings-json.sh" "$1" "$2"
 }
 
+run_merge_with_flags() {
+  bash "$SCRIPT_DIR/merge-settings-json.sh" "$@"
+}
+
 # ── SECTION 1: Scenarios 1-5 ─────────────────────────────────────────────────
 
 @test "1. source-wins update: tagged Bash hook command replaced" {
@@ -465,6 +469,199 @@ EOF
   assert_jq_count "SessionStart has 1 entry" '.hooks.SessionStart | length' 1 "$result"
   assert_jq "child Write hook preserved" \
     '[.hooks.PostToolUse[] | select(.matcher=="Write")] | length' "1" "$result"
+}
+
+# ── SECTION 3b: --skip-permissions tests ────────────────────────────────────
+
+@test "A. --skip-permissions skips source allow rules, preserves target allows" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Write","Bash(git:*)"],
+    "deny": ["Bash(sudo:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Edit"],
+    "deny": ["Bash(rm -rf:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json" --skip-permissions)
+  assert_jq "allows contain Edit (target preserved)" '.permissions.allow | contains(["Edit"])' "true" "$result"
+  assert_jq "allows contain Read (target preserved)" '.permissions.allow | contains(["Read"])' "true" "$result"
+  assert_jq "source allow Write not leaked" '[.permissions.allow[] | select(.=="Write")] | length' "0" "$result"
+  assert_jq "source allow Bash(git:*) not leaked" '[.permissions.allow[] | select(.=="Bash(git:*)")] | length' "0" "$result"
+  assert_jq_count "allows equals target only (2 entries)" '.permissions.allow | length' 2 "$result"
+  assert_jq "deny has Bash(rm -rf:*)" '.permissions.deny | contains(["Bash(rm -rf:*)"])' "true" "$result"
+  assert_jq "deny has Bash(sudo:*)" '.permissions.deny | contains(["Bash(sudo:*)"])' "true" "$result"
+  assert_jq_count "deny union has 2 entries" '.permissions.deny | length' 2 "$result"
+}
+
+@test "B. --skip-permissions on fresh install (no target file) gives empty allows" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Write"],
+    "deny": ["Bash(sudo:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/nonexistent-skip.json" --skip-permissions)
+  assert_jq_count "allows is empty array" '.permissions.allow | length' 0 "$result"
+  assert_jq "deny has source deny" '.permissions.deny | contains(["Bash(sudo:*)"])' "true" "$result"
+  assert_jq_count "deny has 1 entry" '.permissions.deny | length' 1 "$result"
+  assert_jq "defaultMode absent" '.permissions | has("defaultMode")' "false" "$result"
+}
+
+@test "C. without --skip-permissions flag, allow rules merge as before (regression)" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Write"],
+    "deny": ["Bash(sudo:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Edit"],
+    "deny": ["Bash(rm -rf:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json")
+  assert_jq "allows contain Edit" '.permissions.allow | contains(["Edit"])' "true" "$result"
+  assert_jq "allows contain Read" '.permissions.allow | contains(["Read"])' "true" "$result"
+  assert_jq "allows contain Write" '.permissions.allow | contains(["Write"])' "true" "$result"
+  assert_jq_count "allows union has 3 entries" '.permissions.allow | length' 3 "$result"
+  assert_jq "deny has Bash(rm -rf:*)" '.permissions.deny | contains(["Bash(rm -rf:*)"])' "true" "$result"
+  assert_jq "deny has Bash(sudo:*)" '.permissions.deny | contains(["Bash(sudo:*)"])' "true" "$result"
+  assert_jq_count "deny union has 2 entries" '.permissions.deny | length' 2 "$result"
+}
+
+@test "D. --skip-permissions preserves target's existing allows exactly (no source leakage)" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Bash(git:*)","Read","Write"],
+    "deny": []
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Bash(npm:*)","Edit","Read","WebSearch"],
+    "deny": []
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json" --skip-permissions)
+  assert_jq_count "allows has exactly 4 entries (target only)" '.permissions.allow | length' 4 "$result"
+  assert_jq "Bash(npm:*) present" '.permissions.allow | contains(["Bash(npm:*)"])' "true" "$result"
+  assert_jq "Edit present" '.permissions.allow | contains(["Edit"])' "true" "$result"
+  assert_jq "Read present" '.permissions.allow | contains(["Read"])' "true" "$result"
+  assert_jq "WebSearch present" '.permissions.allow | contains(["WebSearch"])' "true" "$result"
+  assert_jq "source Bash(git:*) not leaked" '[.permissions.allow[] | select(.=="Bash(git:*)")] | length' "0" "$result"
+  assert_jq "source Write not leaked" '[.permissions.allow[] | select(.=="Write")] | length' "0" "$result"
+}
+
+@test "E. --skip-permissions compatible with --managed-key flags" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Write","Bash(git:*)"],
+    "deny": ["Bash(sudo:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read","Edit"],
+    "deny": ["Bash(rm -rf:*)"]
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json" --managed-key permissions --managed-key hooks --skip-permissions)
+  assert_jq "allows contain Edit (target preserved)" '.permissions.allow | contains(["Edit"])' "true" "$result"
+  assert_jq "allows contain Read (target preserved)" '.permissions.allow | contains(["Read"])' "true" "$result"
+  assert_jq "source allow Write not leaked" '[.permissions.allow[] | select(.=="Write")] | length' "0" "$result"
+  assert_jq "source allow Bash(git:*) not leaked" '[.permissions.allow[] | select(.=="Bash(git:*)")] | length' "0" "$result"
+  assert_jq_count "allows equals target only (2 entries)" '.permissions.allow | length' 2 "$result"
+  assert_jq "deny has Bash(rm -rf:*)" '.permissions.deny | contains(["Bash(rm -rf:*)"])' "true" "$result"
+  assert_jq "deny has Bash(sudo:*)" '.permissions.deny | contains(["Bash(sudo:*)"])' "true" "$result"
+}
+
+@test "F. --skip-permissions does not affect hooks, extraKnownMarketplaces, enabledPlugins merge" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read"],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "_agentFlow": true,
+        "hooks": [{"type":"command","command":"source-hook"}]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "source-market": {"source": {"source": "github", "repo": "org/repo"}}
+  },
+  "enabledPlugins": {"pluginA": true}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Edit"],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [{"type":"command","command":"child-hook"}]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "target-market": {"source": {"source": "github", "repo": "other/repo"}}
+  },
+  "enabledPlugins": {"pluginB": true}
+}
+EOF
+  result=$(run_merge_with_flags "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json" --skip-permissions)
+  assert_jq_count "hooks has 2 PostToolUse entries (both merged)" '.hooks.PostToolUse | length' 2 "$result"
+  assert_jq "source tagged hook present" \
+    '[.hooks.PostToolUse[] | select(._agentFlow == true)] | length' "1" "$result"
+  assert_jq "child hook preserved" \
+    '[.hooks.PostToolUse[] | select(.matcher=="Write")] | length' "1" "$result"
+  assert_jq "source-market present" '.extraKnownMarketplaces | has("source-market")' "true" "$result"
+  assert_jq "target-market present" '.extraKnownMarketplaces | has("target-market")' "true" "$result"
+  assert_jq "pluginA present" '.enabledPlugins | has("pluginA")' "true" "$result"
+  assert_jq "pluginB present" '.enabledPlugins | has("pluginB")' "true" "$result"
+  assert_jq "allows = target only (Edit)" '.permissions.allow | contains(["Edit"])' "true" "$result"
+  assert_jq_count "allows has exactly 1 entry (target only)" '.permissions.allow | length' 1 "$result"
+  assert_jq "source Read not leaked into allows" '[.permissions.allow[] | select(.=="Read")] | length' "0" "$result"
 }
 
 # ── SECTION 4: Reverse merge (upstream) ─────────────────────────────────────

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # merge-settings-json.sh — Deep-merge managed keys from source settings.json into target
 #
-# Usage: merge-settings-json.sh <source-settings.json> <target-settings.json>
+# Usage: merge-settings-json.sh <source-settings.json> <target-settings.json> [--skip-permissions] [--managed-key <key>]...
 #
 # Strategy:
 #   - If target doesn't exist: copy source directly (strip defaultMode)
 #   - If target exists: merge managed keys (permissions, hooks, extraKnownMarketplaces, enabledPlugins)
-#     - permissions.allow: union arrays (deduplicate, sort)
+#     - permissions.allow: union arrays (deduplicate, sort) unless --skip-permissions
 #     - permissions.deny: union arrays (deduplicate, sort)
 #     - permissions.defaultMode: never propagated (removed from output)
 #     - hooks: source entries tagged _agentFlow replace matching target entries;
@@ -23,13 +23,22 @@
 
 set -euo pipefail
 
-if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <source-settings.json> <target-settings.json>" >&2
+SKIP_PERMISSIONS=false
+SOURCE_FILE=""
+TARGET_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-permissions) SKIP_PERMISSIONS=true; shift ;;
+    --managed-key) [[ $# -lt 2 ]] && { echo "Error: --managed-key requires a value" >&2; exit 1; }; shift 2 ;;
+    *) if [[ -z "$SOURCE_FILE" ]]; then SOURCE_FILE="$1"; elif [[ -z "$TARGET_FILE" ]]; then TARGET_FILE="$1"; fi; shift ;;
+  esac
+done
+
+if [[ -z "$SOURCE_FILE" || -z "$TARGET_FILE" ]]; then
+  echo "Usage: $0 <source-settings.json> <target-settings.json> [--skip-permissions]" >&2
   exit 1
 fi
-
-SOURCE_FILE="$1"
-TARGET_FILE="$2"
 
 if ! command -v jq &>/dev/null; then
   echo "Error: jq is required but not installed." >&2
@@ -38,12 +47,17 @@ fi
 
 # If target doesn't exist, output source directly (strip defaultMode)
 if [[ ! -f "$TARGET_FILE" ]]; then
-  jq 'del(.permissions.defaultMode)' "$SOURCE_FILE"
+  if [[ "$SKIP_PERMISSIONS" == true ]]; then
+    # Fresh install with --skip-permissions: empty allows, source denies only
+    jq 'del(.permissions.defaultMode) | .permissions.allow = []' "$SOURCE_FILE"
+  else
+    jq 'del(.permissions.defaultMode)' "$SOURCE_FILE"
+  fi
   exit 0
 fi
 
 # Deep merge using jq
-jq -s '
+jq -s --argjson skip_allow "$SKIP_PERMISSIONS" '
   # $source = .[0], $target = .[1]
   .[0] as $source | .[1] as $target |
 
@@ -54,10 +68,14 @@ jq -s '
   .permissions = (
     ($target.permissions // {}) |
 
-    # Union allow arrays (deduplicate, sort)
+    # Conditionally merge allow arrays
     .allow = (
-      (($target.permissions.allow // []) + ($source.permissions.allow // []))
-      | unique | sort
+      if $skip_allow then
+        ($target.permissions.allow // [])
+      else
+        (($target.permissions.allow // []) + ($source.permissions.allow // []))
+        | unique | sort
+      end
     ) |
 
     # Union deny arrays (deduplicate, sort)

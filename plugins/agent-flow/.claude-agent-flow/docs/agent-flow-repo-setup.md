@@ -4,7 +4,7 @@ How to deploy the agent-flow distribution system from scratch.
 
 ## Step 1: Create the `agent-flow` repo
 
-Create `<your-org>/<your-source-repo>` on GitHub. Mark it as a **template repository** (Settings > General > Template repository checkbox). It can be **private**.
+Create `<your-org>/<your-source-repo>` on GitHub. Mark it as a **template repository** (Settings > General > Template repository checkbox). It must be **public** (the install script uses unauthenticated HTTPS clone).
 
 ## Step 2: Populate it
 
@@ -59,11 +59,11 @@ targets:
 
 ## Step 6: Install into a child repo
 
-Run these three commands from within the target repo (requires [gh CLI](https://cli.github.com)):
+Run these three commands from within the target repo:
 
 ```bash
 rm -rf /tmp/agent-flow
-gh repo clone <your-org>/<your-source-repo> /tmp/agent-flow -- --depth 1
+git clone --depth 1 --branch main https://github.com/<your-org>/<your-source-repo>.git /tmp/agent-flow
 /tmp/agent-flow/.claude-agent-flow/scripts/agent-flow-install.sh
 rm -rf /tmp/agent-flow
 ```
@@ -149,9 +149,9 @@ Commit trailers (`Agent-Flow-Sync-Origin: <repo>`) prevent infinite loops. The o
 | Stop syncing **to** a child | Set `enabled: false` in manifest targets | Master repo |
 | Stop syncing **from** a child | Set `AGENT_FLOW_UPSTREAM_SYNC_ENABLED=false` as repo variable | Child repo |
 
-## Private repo note
+## Visibility requirement
 
-The agent-flow repo can be private. The install script uses `gh repo clone` (which inherits the user's GitHub auth) as the primary clone method, with `git clone` as a fallback for public repos. The `/agent-flow-install` Claude command handles this automatically.
+The agent-flow repo must be public. The install script uses `git clone` with HTTPS, which works without authentication on any machine with git installed.
 
 ## What gets installed in child repos
 

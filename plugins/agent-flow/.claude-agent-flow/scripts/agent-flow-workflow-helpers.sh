@@ -95,7 +95,7 @@ check_source_identity() {
 }
 
 # Read enabled target repos from manifest as JSON array.
-# Requires: python3 with pyyaml
+# Uses pyyaml when available, with a lightweight shell fallback.
 read_targets() {
   local manifest=".claude-agent-flow/repo-sync-manifest.yml"
 
@@ -104,7 +104,7 @@ read_targets() {
     return 1
   fi
 
-  MANIFEST_PATH="$manifest" python3 -c "
+  if MANIFEST_PATH="$manifest" python3 -c "
 import yaml, json, sys, os
 try:
     with open(os.environ['MANIFEST_PATH']) as f:
@@ -114,11 +114,55 @@ try:
 except Exception as e:
     print(f'ERROR: {e}', file=sys.stderr)
     sys.exit(1)
-" || {
-    # Fallback if python3/pyyaml unavailable — stderr already shown above
-    echo "[]"
-    return 1
-  }
+"; then
+    return 0
+  fi
+
+  # Fallback parser for environments without pyyaml.
+  local repos=()
+  local in_targets=false
+  local pending_repo=""
+  local pending_enabled="true"
+  local line
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+    if [[ "$line" =~ ^targets:[[:space:]]*$ ]]; then
+      in_targets=true
+      continue
+    fi
+
+    if [[ "$in_targets" == true && "$line" =~ ^[^[:space:]] ]]; then
+      break
+    fi
+
+    if [[ "$in_targets" != true ]]; then
+      continue
+    fi
+
+    if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+repo:[[:space:]]*(.+)$ ]]; then
+      if [[ -n "$pending_repo" && "$pending_enabled" != "false" ]]; then
+        repos+=("$pending_repo")
+      fi
+      pending_repo="${BASH_REMATCH[1]}"
+      pending_repo="${pending_repo%\"}"
+      pending_repo="${pending_repo#\"}"
+      pending_repo="$(echo "$pending_repo" | sed -E "s/[[:space:]]+$//")"
+      pending_enabled="true"
+      continue
+    fi
+
+    if [[ "$line" =~ ^[[:space:]]+enabled:[[:space:]]*(.+)$ ]]; then
+      pending_enabled="$(echo "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]' | xargs)"
+    fi
+  done < "$manifest"
+
+  if [[ -n "$pending_repo" && "$pending_enabled" != "false" ]]; then
+    repos+=("$pending_repo")
+  fi
+
+  printf '%s\n' "${repos[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))'
 }
 
 # Filter out .claude-agent-flow/sync-state.json from staged changed files.
@@ -155,7 +199,7 @@ parse_source_repo() {
 #   --include-upstream-merge   Include only upstream-eligible merge_files
 #                              (json-deep-merge, section-patch strategies)
 # Outputs: newline-separated list of file paths (deduplicated, sorted)
-# Requires: python3 with pyyaml
+# Uses pyyaml when available, with a lightweight shell fallback.
 list_managed_paths() {
   local include_merge=false
   local include_upstream_merge=false
@@ -171,7 +215,7 @@ list_managed_paths() {
     return 1
   fi
 
-  INCLUDE_MERGE="$include_merge" INCLUDE_UPSTREAM_MERGE="$include_upstream_merge" python3 -c "
+  if INCLUDE_MERGE="$include_merge" INCLUDE_UPSTREAM_MERGE="$include_upstream_merge" python3 -c "
 import yaml, glob, os
 
 with open('.claude-agent-flow/repo-sync-manifest.yml') as f:
@@ -232,7 +276,109 @@ if filter_path and not os.path.isabs(filter_path) and os.path.isfile(filter_path
 
 for p in sorted(set(paths)):
     print(p)
-" || { echo "ERROR: Failed to parse manifest" >&2; return 1; }
+"; then
+    return 0
+  fi
+
+  # Fallback parser for environments without pyyaml.
+  local managed_patterns=()
+  local merge_paths=()
+  local merge_strategies=()
+  local vendored_skills_source=""
+  local mode=""
+  local current_path=""
+  local line
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+    if [[ "$line" =~ ^managed_files:[[:space:]]*$ ]]; then mode="managed"; continue; fi
+    if [[ "$line" =~ ^merge_files:[[:space:]]*$ ]]; then mode="merge"; continue; fi
+    if [[ "$line" =~ ^vendored_skills_source:[[:space:]]*(.+)$ ]]; then
+      vendored_skills_source="${BASH_REMATCH[1]}"
+      vendored_skills_source="${vendored_skills_source%\"}"
+      vendored_skills_source="${vendored_skills_source#\"}"
+      vendored_skills_source="$(echo "$vendored_skills_source" | sed -E "s/[[:space:]]+$//")"
+      continue
+    fi
+    if [[ "$line" =~ ^[^[:space:]] ]]; then mode=""; fi
+
+    if [[ "$mode" == "managed" && "$line" =~ ^[[:space:]]*-[[:space:]]*(.+)$ ]]; then
+      local raw="${BASH_REMATCH[1]}"
+      raw="${raw%\"}"; raw="${raw#\"}"
+      raw="$(echo "$raw" | sed -E "s/[[:space:]]+$//")"
+      managed_patterns+=("$raw")
+      continue
+    fi
+
+    if [[ "$mode" == "merge" && "$line" =~ ^[[:space:]]*-[[:space:]]+path:[[:space:]]*(.+)$ ]]; then
+      current_path="${BASH_REMATCH[1]}"
+      current_path="${current_path%\"}"; current_path="${current_path#\"}"
+      current_path="$(echo "$current_path" | sed -E "s/[[:space:]]+$//")"
+      merge_paths+=("$current_path")
+      merge_strategies+=("")
+      continue
+    fi
+
+    if [[ "$mode" == "merge" && "$line" =~ ^[[:space:]]+strategy:[[:space:]]*(.+)$ ]]; then
+      local strategy="${BASH_REMATCH[1]}"
+      strategy="${strategy%\"}"; strategy="${strategy#\"}"
+      strategy="$(echo "$strategy" | sed -E "s/[[:space:]]+$//")"
+      if ((${#merge_strategies[@]} > 0)); then
+        merge_strategies[$((${#merge_strategies[@]}-1))]="$strategy"
+      fi
+    fi
+  done < "$manifest"
+
+  local all_paths=()
+  shopt -s nullglob globstar
+  local pattern match
+  for pattern in "${managed_patterns[@]}"; do
+    for match in $pattern; do
+      if [[ -d "$match" ]]; then
+        while IFS= read -r f; do all_paths+=("$f"); done < <(find "$match" -type f | sort)
+      else
+        all_paths+=("$match")
+      fi
+    done
+  done
+  shopt -u nullglob globstar
+
+  local i
+  if [[ "$include_merge" == true ]]; then
+    for i in "${!merge_paths[@]}"; do all_paths+=("${merge_paths[$i]}"); done
+  elif [[ "$include_upstream_merge" == true ]]; then
+    for i in "${!merge_paths[@]}"; do
+      case "${merge_strategies[$i]}" in
+        json-deep-merge|section-patch) all_paths+=("${merge_paths[$i]}") ;;
+      esac
+    done
+  fi
+
+  if [[ -n "$vendored_skills_source" && -f "$vendored_skills_source" ]]; then
+    local resolved_filter cwd
+    resolved_filter="$(realpath "$vendored_skills_source")"
+    cwd="$(realpath ".")"
+    if [[ "$resolved_filter" == "$cwd"* ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^included:[[:space:]]*$ ]]; then
+          mode="included"
+          continue
+        fi
+        if [[ "$mode" == "included" && "$line" =~ ^[[:space:]]*-[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]*)[[:space:]]*$ ]]; then
+          local skill_name="${BASH_REMATCH[1]}"
+          local skill_dir=".claude/skills/${skill_name}"
+          if [[ -d "$skill_dir" ]]; then
+            while IFS= read -r f; do all_paths+=("$f"); done < <(find "$skill_dir" -type f | sort)
+          fi
+          continue
+        fi
+        if [[ "$line" =~ ^[^[:space:]] ]]; then mode=""; fi
+      done < "$resolved_filter"
+    fi
+  fi
+
+  printf '%s\n' "${all_paths[@]}" | awk 'NF' | sort -u
 }
 
 # Validate required and optional secret env vars.
