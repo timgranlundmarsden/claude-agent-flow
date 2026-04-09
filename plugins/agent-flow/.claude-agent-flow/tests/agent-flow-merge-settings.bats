@@ -293,13 +293,13 @@ EOF
 }
 EOF
   result=$(run_merge "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/nonexistent.json")
-  assert_jq "source copied: defaultMode" '.permissions.defaultMode' "acceptEdits" "$result"
+  assert_jq "defaultMode absent from passthrough" '.permissions | has("defaultMode")' "false" "$result"
   assert_jq_count "hooks present" '.hooks.PostToolUse | length' 1 "$result"
 }
 
 # ── SECTION 3: Scenarios 11-15 ───────────────────────────────────────────────
 
-@test "11. permissions union dedup sort, defaultMode source wins" {
+@test "11. permissions union dedup sort, defaultMode stripped" {
   cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
 {
   "permissions": {
@@ -326,7 +326,53 @@ EOF
   assert_jq "Write from source" '.permissions.allow | contains(["Write"])' "true" "$result"
   assert_jq "Read appears once" '[.permissions.allow[] | select(.=="Read")] | length' "1" "$result"
   assert_jq "sudo deny deduped" '[.permissions.deny[] | select(.=="Bash(sudo:*)")] | length' "1" "$result"
-  assert_jq "defaultMode: source wins" '.permissions.defaultMode' "bypassPermissions" "$result"
+  assert_jq "defaultMode absent from merged output" '.permissions | has("defaultMode")' "false" "$result"
+}
+
+@test "11b. defaultMode stripped when only source has it" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read"],
+    "defaultMode": "bypassPermissions"
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Edit"]
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json")
+  assert_jq "defaultMode absent from output" '.permissions | has("defaultMode")' "false" "$result"
+  assert_jq "allow union still works" '.permissions.allow | contains(["Read"])' "true" "$result"
+  assert_jq "allow union includes target" '.permissions.allow | contains(["Edit"])' "true" "$result"
+}
+
+@test "11c. defaultMode stripped when only target has it" {
+  cat > "$BATS_TEST_TMPDIR/source.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Read"]
+  },
+  "hooks": {}
+}
+EOF
+  cat > "$BATS_TEST_TMPDIR/target.json" << 'EOF'
+{
+  "permissions": {
+    "allow": ["Edit"],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {}
+}
+EOF
+  result=$(run_merge "$BATS_TEST_TMPDIR/source.json" "$BATS_TEST_TMPDIR/target.json")
+  assert_jq "defaultMode absent from output" '.permissions | has("defaultMode")' "false" "$result"
 }
 
 @test "12. custom keys preserved from target" {

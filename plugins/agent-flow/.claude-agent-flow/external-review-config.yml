@@ -1153,3 +1153,6 @@ suppress:
   - file: ".claude/skills/external-code-review/external-review.sh"
     keyword: "unsafe for .env trust boundaries"
     reason: "Reviewer: .env is developer-controlled; no untrusted content. The security framing is wrong. Double-quoting in export prevents word splitting and glob expansion. Distinct correctness issue (quoted values) is tracked separately."
+  - file: ".claude-agent-flow/tests/plugin-repo-sync.bats"
+    keyword: "partial writes"
+    reason: "Reviewer: generate_marketplace_json() returns early at line 479 (skip path) when source_plugin_json is missing — no file operations occur before the guard. The partial-writes concern is a false positive."

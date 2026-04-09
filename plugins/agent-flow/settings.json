@@ -109,8 +109,7 @@
       "Read(**/secrets/**)",
       "Read(~/.aws/*)",
       "Read(~/.ssh/*)"
-    ],
-    "defaultMode": "bypassPermissions"
+    ]
   },
   "hooks": {
     "SessionStart": [
