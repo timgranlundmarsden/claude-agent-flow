@@ -1,0 +1,19 @@
+# Skills to vendor into this repo for web environment compatibility.
+# Only skills listed under `included` will be copied by /sync-plugin-skills.
+#
+# To add a skill: add it to `included`, then re-run /sync-plugin-skills.
+# To remove a skill: remove it from `included`, delete its folder, and commit.
+
+included:
+  - brainstorming
+  - frontend-design
+  - playwright-cli
+  - agent-development
+  - command-development
+  - hook-development
+  - mcp-integration
+  - plugin-settings
+  - plugin-structure
+  - skill-development
+  - backlog-md
+  - backlog-tpm

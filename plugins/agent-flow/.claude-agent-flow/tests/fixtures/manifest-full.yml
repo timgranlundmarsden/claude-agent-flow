@@ -1,0 +1,74 @@
+version: 2
+source_repo: testorg/agent-team
+
+# Fully managed — overwritten on sync (source always wins)
+# Uses glob patterns; sync engine expands at runtime
+managed_files:
+  - .claude/agents/*.md
+  - .claude/commands/*.md
+  - .claude/skills/*/
+  - .claude-plugin/
+  - .mcp.json
+  - .claude-agent-flow/bin/mergiraf-*.tar.gz
+  - .claude-agent-flow/
+  - .github/workflows/agent-flow-*.yml
+
+# Vendored plugins — resolved at runtime from skills-filter.yaml included list
+vendored_skills_source: .claude/skills/sync-plugin-skills/skills-filter.yaml
+
+# Files requiring intelligent merge (not overwrite)
+merge_files:
+  - path: .claude/settings.json
+    strategy: json-deep-merge
+    managed_keys:
+      - permissions
+      - hooks
+      - extraKnownMarketplaces
+      - enabledPlugins
+
+  - path: CLAUDE.md
+    strategy: section-patch
+    managed_sections:
+      - "Backlog Management"
+      - "Git Workflow — Required Before Every Push"
+      - "Plan Mode Override"
+      - "Agent Flow"
+      - "Visual Layout Verification"
+      - "Document Folder Auto-Suggest"
+      - "Backlog Workflow"
+
+  - path: .gitignore
+    strategy: append-missing
+    managed_lines:
+      - ".claude/settings.local.json"
+      - ".playwright-cli/"
+      - ".scratch/screenshots/"
+      - ".claude-agent-flow/bin/mergiraf"
+      - ".superpowers/brainstorm/"
+
+  - path: backlog/config.yml
+    strategy: template
+    customizable_fields:
+      - project_name
+
+  - path: .mcp.json
+    strategy: json-deep-merge
+    managed_keys:
+      - mcpServers.backlog
+
+  - path: .gitattributes
+    strategy: append-missing
+    managed_lines:
+      - "* merge=mergiraf"
+
+  - path: .claude-agent-flow/scripts/session-start.sh
+    strategy: overwrite
+
+# Target repos — only maintained in the source repo's copy
+targets:
+  - repo: testorg/idea-factory
+    enabled: true
+  - repo: testorg/agent-team-test-01
+    enabled: true
+  - repo: testorg/open-brain
+    enabled: true

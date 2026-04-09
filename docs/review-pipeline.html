@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>/review Pipeline — Claude Agent Flow</title>
+  <meta name="description" content="The /review pipeline — run adversarial code review with the critic agent for quality assurance." />
+  <meta property="og:title" content="/review Pipeline — Claude Agent Flow" />
+  <meta property="og:description" content="The /review pipeline — run adversarial code review with the critic agent for quality assurance." />
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png" />
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/review-pipeline.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Claude Agent Flow" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="/review Pipeline — Claude Agent Flow" />
+  <meta name="twitter:description" content="The /review pipeline — run adversarial code review with the critic agent for quality assurance." />
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png" />
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/review-pipeline.html" />
+  <style>
+    /* ── CSS TOKENS (exact match with sibling pages) ───────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav { position: sticky; top: 0; background: rgba(251,251,253,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); z-index: 100; user-select: none; }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a { font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -.01em; white-space: nowrap; }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link { color: var(--text-secondary); display: flex; align-items: center; opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none; }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 14px; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle { color: var(--text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 4px; white-space: nowrap; user-select: none; }
+    .nav-dropdown-toggle:hover, .nav-dropdown-toggle.nav-active { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 140px; padding: 6px; opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity 0.2s, transform 0.2s, visibility 0.2s; z-index: 200; }
+    .nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 13px; transition: background 0.15s; }
+    .nav-dropdown-menu a:hover, .nav-dropdown-menu a.nav-active { background: rgba(0,113,227,.07); color: var(--blue); font-weight: 600; }
+    .nav-toggle-cb { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    .burger-icon { display: none; cursor: pointer; width: 44px; height: 44px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); flex-shrink: 0; margin-left: auto; }
+    .burger-bar, .burger-bar::before, .burger-bar::after { display: block; width: 20px; height: 2px; background: var(--text); border-radius: 1px; transition: transform 0.3s ease, opacity 0.3s ease; }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top:  6px; }
+    .nav-toggle-cb:checked ~ header .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ header .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ header .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; cursor: pointer; }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer { position: fixed; top: 0; right: 0; width: min(260px, 75vw); height: 100%; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000; transform: translateX(100%); transition: transform 0.3s ease; display: flex; flex-direction: column; padding: 72px 20px 24px; overflow-y: auto; gap: 4px; }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: 14px; color: var(--text); text-decoration: none; border-radius: var(--radius-sm); transition: background 0.15s; }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text-secondary); cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s; }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    .drawer-reference-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); padding: 12px 14px 4px; }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover, .drawer-reference a.nav-active { color: var(--blue); font-weight: 600; }
+    @media (max-width: 768px) { .nav-links, .nav-dropdown { display: none !important; } .burger-icon { display: flex !important; } }
+    @media (min-width: 768.01px) { .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; } }
+
+    /* ── DETAIL HERO ─────────────────────────────────────────────── */
+    .detail-hero {
+      padding: 64px 0 32px; text-align: center;
+      animation: fadeUp 0.6s ease-out both;
+    }
+    .detail-hero h1 {
+      font-family: var(--mono); font-size: clamp(36px, 5vw, 56px);
+      font-weight: 700; letter-spacing: -.02em; color: var(--text);
+      margin-bottom: 16px; line-height: 1.05;
+    }
+    .detail-hero h1 .cmd-slash { color: var(--blue); }
+    .detail-hero .subtitle {
+      font-size: 18px; color: var(--text-secondary); max-width: 680px;
+      margin: 0 auto; font-weight: 400; letter-spacing: -.01em; line-height: 1.55;
+    }
+
+    /* ── PIPELINE VERTICAL ───────────────────────────────────────── */
+    .pipeline-vertical-wrap {
+      display: flex; flex-direction: column; align-items: center; padding: 40px 0 48px;
+    }
+    .pipeline-vertical {
+      max-width: 480px; width: 100%; display: flex;
+      flex-direction: column; align-items: center; gap: 0;
+    }
+    .pipeline-vertical .node-wrapper {
+      display: flex; flex-direction: column; align-items: center; width: 100%;
+    }
+    .pipeline-vertical .connector {
+      width: 2px; height: 24px; background: var(--border); flex-shrink: 0;
+    }
+
+    /* ── NODE CARDS ───────────────────────────────────────────────── */
+    .node-card {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 5px; position: relative;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s ease calc(var(--i,0)*80ms),
+                  transform 0.4s ease calc(var(--i,0)*80ms);
+    }
+    .pipeline-vertical.visible .node-card { opacity: 1; transform: none; }
+    .node-card-top { display: flex; align-items: center; gap: 8px; }
+    .node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-opus   { background: var(--opus); }
+    .dot-sonnet { background: var(--blue); }
+    .dot-haiku  { background: var(--haiku); }
+    .node-card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .node-card-model {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 20px; color: #fff;
+      letter-spacing: .02em; flex-shrink: 0;
+    }
+    .node-card-model.opus   { background: var(--opus); }
+    .node-card-model.sonnet { background: var(--blue); }
+    .node-card-model.haiku  { background: var(--haiku); }
+    .node-card-desc { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+
+    /* ── ADVERSARIAL LOOP ────────────────────────────────────────── */
+    .adv-loop {
+      width: 100%; border: 2px dashed var(--fail); border-radius: var(--radius-md);
+      padding: 14px 14px 10px;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s ease calc(var(--i,0)*80ms),
+                  transform 0.4s ease calc(var(--i,0)*80ms);
+    }
+    .pipeline-vertical.visible .adv-loop { opacity: 1; transform: none; }
+    .adv-header {
+      font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--fail); margin-bottom: 12px;
+    }
+    .adv-inner { display: flex; flex-direction: column; align-items: center; gap: 0; }
+    .adv-loop .node-card { opacity: 1; transform: none; }
+    .branch-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0; }
+    .fail-label {
+      font-size: 10px; font-weight: 700; color: #c5221f;
+      letter-spacing: .04em; animation: pulseFail 1.4s ease-in-out infinite;
+    }
+    .pass-label {
+      font-size: 10px; font-weight: 700; color: var(--haiku);
+      letter-spacing: .04em; animation: glowPass 1.8s ease-in-out infinite;
+    }
+    .adv-arrows { width: 100%; height: 36px; overflow: visible; margin: 4px 0; }
+    .loop-arrow {
+      fill: none; stroke-width: 1.5; stroke-linecap: round;
+      stroke-dasharray: 200; animation: loopCycle 2s linear infinite;
+    }
+    .arrow-path {
+      fill: none; stroke-width: 1.5; stroke-linecap: round;
+      stroke-dasharray: 200; stroke-dashoffset: 200;
+    }
+    .pipeline-vertical.visible .arrow-path { animation: traceArrow 1s ease-out forwards; }
+
+    /* ── WALKTHROUGH ─────────────────────────────────────────────── */
+    .walkthrough { max-width: 760px; margin: 0 auto; padding-bottom: 64px; }
+
+    /* ── PHASE SECTION ───────────────────────────────────────────── */
+    .phase-section {
+      margin-bottom: 56px; scroll-margin-top: 80px;
+      opacity: 0; transform: translateY(16px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+    .phase-section.visible { opacity: 1; transform: none; }
+    .phase-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .phase-badge {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--blue); color: #fff;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .phase-title {
+      font-size: 24px; font-weight: 700; letter-spacing: -.02em;
+      color: var(--text); line-height: 1.1;
+    }
+    .phase-desc {
+      font-size: 15px; color: var(--text-secondary);
+      line-height: 1.7; margin-bottom: 24px;
+    }
+
+    /* ── CODE EXCERPT ────────────────────────────────────────────── */
+    .code-excerpt {
+      position: relative; background: #1d1d1f; color: #f5f5f7;
+      font-family: var(--mono); font-size: 13px; line-height: 1.7;
+      padding: 20px 24px; border-radius: var(--radius-md);
+      overflow-x: auto; margin-bottom: 16px;
+      border-left: 3px solid rgba(0,113,227,.5);
+    }
+    .code-excerpt-label {
+      position: absolute; top: 8px; right: 12px; font-size: 10px;
+      color: rgba(255,255,255,.35); font-family: var(--mono);
+      letter-spacing: .04em; pointer-events: none;
+    }
+    .code-excerpt pre { white-space: pre-wrap; word-break: break-word; }
+    .code-excerpt .kw { color: #fc8e76; }
+    .code-excerpt .cm { color: rgba(255,255,255,.38); font-style: italic; }
+    .code-excerpt .st { color: #a5d6a7; }
+
+    /* ── CALLOUT BOX ─────────────────────────────────────────────── */
+    .callout-box {
+      border-radius: var(--radius-md); padding: 16px 20px;
+      margin: 0 0 24px; font-size: 14px; line-height: 1.6;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .callout-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .callout-blue   { background: rgba(0,113,227,.06); border-left: 4px solid var(--blue); color: #004a99; }
+    .callout-purple { background: rgba(124,58,237,.06); border-left: 4px solid var(--opus); color: #4c1d95; }
+    .callout-red    { background: rgba(255,59,48,.06);  border-left: 4px solid var(--fail); color: #991b1b; }
+    .callout-green  { background: rgba(40,167,69,.06);  border-left: 4px solid var(--haiku); color: #14532d; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────── */
+    footer {
+      text-align: center; color: var(--text-secondary); font-size: 13px;
+      padding: 48px 0 56px; margin-top: 48px; border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ── ANIMATIONS ──────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulseFail {
+      0%,100% { opacity: .5; }
+      50%     { opacity: 1; }
+    }
+    @keyframes glowPass {
+      0%,100% { box-shadow: 0 0 0 rgba(40,167,69,0); }
+      50%     { box-shadow: 0 0 8px rgba(40,167,69,.6); }
+    }
+    @keyframes traceArrow { to { stroke-dashoffset: 0; } }
+    @keyframes loopCycle {
+      0%   { stroke-dashoffset: 200; }
+      50%  { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: -200; }
+    }
+
+    /* ── AGENT GROUP ──────────────────────────────────────────────── */
+    .agent-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 28px 28px 4px;
+      margin-bottom: 40px;
+      scroll-margin-top: 80px;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .agent-group.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    .agent-group.tier-opus   { border-left: 4px solid var(--opus); }
+    .agent-group.tier-sonnet { border-left: 4px solid var(--blue); }
+    .agent-group.tier-haiku  { border-left: 4px solid var(--haiku); }
+    .agent-group.tier-neutral { border-left: 4px solid var(--border); }
+
+    .agent-group-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .agent-group-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .group-connector {
+      width: 2px;
+      height: 32px;
+      background: var(--border);
+      margin: 0 auto;
+    }
+
+    a.node-card-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      width: 100%;
+      align-self: stretch;
+    }
+
+    a.node-card-link:hover .node-card {
+      border-color: var(--blue);
+      box-shadow: 0 2px 8px rgba(0,113,227,.12);
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .detail-hero { padding: 48px 0 24px; }
+      .walkthrough { padding-bottom: 40px; }
+      .agent-group { padding: 20px 18px 4px; }
+    }
+
+    /* ── REDUCED MOTION ──────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .node-card     { opacity: 1 !important; transform: none !important; }
+      .adv-loop      { opacity: 1 !important; transform: none !important; }
+      .phase-section { opacity: 1 !important; transform: none !important; }
+      .agent-group   { opacity: 1 !important; transform: none !important; }
+    }
+
+  </style>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle nav-active">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html" class="nav-active" aria-current="page">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html" class="nav-active" aria-current="page">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main class="page">
+
+  <!-- ── DETAIL HERO ─────────────────────────────────────────── -->
+  <section class="detail-hero" aria-labelledby="heading-review">
+    <h1 id="heading-review"><span class="cmd-slash">/</span>review</h1>
+    <p class="subtitle">Run the adversarial critic against existing code without rebuilding. Use when you want to harden code that already exists, or run a quality pass on a completed feature before shipping.</p>
+  </section>
+
+  <!-- ── VERTICAL PIPELINE DIAGRAM ───────────────────────────── -->
+  <section aria-label="Pipeline diagram">
+    <div class="pipeline-vertical-wrap">
+      <div class="pipeline-vertical" role="list">
+
+        <div class="node-wrapper" role="listitem">
+          <a class="node-card-link" href="#resolve-task">
+            <div class="node-card" style="--i:0">
+              <div class="node-card-top">
+                <span class="node-dot dot-haiku" aria-hidden="true"></span>
+                <span class="node-card-name">Explorer</span>
+                <span class="node-card-model haiku">Haiku</span>
+              </div>
+              <p class="node-card-desc">Fast, read-only codebase mapping before review begins.</p>
+            </div>
+          </a>
+        </div>
+        <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
+
+        <!-- Adversarial Loop -->
+        <div class="node-wrapper" style="width:100%" role="listitem">
+          <a class="node-card-link" href="#review" style="display:block;width:100%">
+          <div class="adv-loop" style="--i:1; width:100%">
+            <div class="adv-header">Adversarial Loop (up to 3x)</div>
+            <div class="adv-inner">
+
+              <div class="node-card" style="opacity:1;transform:none">
+                <div class="node-card-top">
+                  <span class="node-dot dot-opus" aria-hidden="true"></span>
+                  <span class="node-card-name">Critic evaluates</span>
+                  <span class="node-card-model opus">Opus</span>
+                </div>
+                <p class="node-card-desc">Actively tries to break code with edge cases; returns PASS or FAIL only.</p>
+              </div>
+
+              <div class="branch-row">
+                <span class="fail-label">FAIL</span>
+                <svg class="adv-arrows" viewBox="0 0 180 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path class="loop-arrow" d="M 90 4 C 155 4 160 32 90 32" stroke="#ff3b30" marker-end="url(#arrowFailReview)" />
+                  <defs>
+                    <marker id="arrowFailReview" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                      <path d="M0,0 L6,3 L0,6 Z" fill="#ff3b30"/>
+                    </marker>
+                  </defs>
+                </svg>
+              </div>
+
+              <div class="node-card" style="opacity:1;transform:none">
+                <div class="node-card-top">
+                  <span class="node-dot dot-sonnet" aria-hidden="true"></span>
+                  <span class="node-card-name">Builder fixes</span>
+                  <span class="node-card-model sonnet">Sonnet</span>
+                </div>
+                <p class="node-card-desc">Addresses FAIL findings and resubmits for re-evaluation.</p>
+              </div>
+
+              <div class="branch-row">
+                <span class="pass-label">PASS</span>
+                <svg class="adv-arrows" viewBox="0 0 180 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path class="arrow-path" d="M 90 4 L 90 30" stroke="#28a745" />
+                  <path d="M 83 24 L 90 34 L 97 24" fill="none" stroke="#28a745" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+
+            </div>
+          </div>
+          </a>
+        </div>
+        <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
+
+        <div class="node-wrapper" role="listitem">
+          <a class="node-card-link" href="#review">
+            <div class="node-card" style="--i:2">
+              <div class="node-card-top">
+                <span class="node-dot dot-sonnet" aria-hidden="true"></span>
+                <span class="node-card-name">Tester</span>
+                <span class="node-card-model sonnet">Sonnet</span>
+              </div>
+              <p class="node-card-desc">Runs tests on PASS to verify nothing broke.</p>
+            </div>
+          </a>
+        </div>
+        <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
+
+        <div class="node-wrapper" role="listitem">
+          <a class="node-card-link" href="#review">
+            <div class="node-card" style="--i:3">
+              <div class="node-card-top">
+                <span class="node-dot dot-sonnet" aria-hidden="true"></span>
+                <span class="node-card-name">Report</span>
+                <span class="node-card-model sonnet">Sonnet</span>
+              </div>
+              <p class="node-card-desc">Iteration count, issues found, issues resolved, test result.</p>
+            </div>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PHASE WALKTHROUGH ────────────────────────────────────── -->
+  <div class="walkthrough">
+
+    <!-- Phase 0 — Resolve Task -->
+    <div class="agent-group tier-haiku" id="resolve-task" aria-labelledby="phase-0-title">
+      <div class="agent-group-header">
+        <span class="node-dot dot-haiku" aria-hidden="true"></span>
+        <span class="agent-group-name">Explorer</span>
+        <span class="node-card-model haiku">Haiku</span>
+      </div>
+      <section class="phase-section" style="margin-bottom:0;opacity:1;transform:none" aria-labelledby="phase-0-title">
+        <div class="phase-header">
+          <span class="phase-badge" aria-hidden="true">0</span>
+          <h2 class="phase-title" id="phase-0-title">Resolve Task — Silent Lookup</h2>
+        </div>
+        <p class="phase-desc">Silently attempt to find a linked backlog task from the input. Unlike /build, this step never interrupts the user.</p>
+
+        <div class="code-excerpt" role="region" aria-label="Task resolution excerpt">
+          <span class="code-excerpt-label">commands/review.md</span>
+          <pre><span class="kw">This step is silent</span> — never interrupt or message
+the user about it.
+
+If no task ID is found: set task_id to empty and
+<span class="st">proceed without tracking. No message to user.</span>
+
+<span class="kw">-</span> <span class="st">@plans/filename.md</span> — Scan for ## Backlog Task: TASK-XX
+<span class="kw">-</span> <span class="st">TASK-XX</span> — Use the ID directly
+<span class="kw">-</span> <span class="st">Inline free-text</span> — No task; set task_id to empty</pre>
+        </div>
+
+        <div class="callout-box callout-red" role="note">
+          <span class="callout-icon" aria-hidden="true">&#9888;</span>
+          <span>The most important behavioral difference from /build: task resolution is completely silent. /build creates tasks on-the-fly for inline text and messages the user about tracking. /review never interrupts — it proceeds without tracking if no task is found.</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="group-connector" aria-hidden="true"></div>
+
+    <!-- Phase 1 — Review -->
+    <div class="agent-group tier-opus" id="review" aria-labelledby="phase-1-title">
+      <div class="agent-group-header">
+        <span class="node-dot dot-opus" aria-hidden="true"></span>
+        <span class="agent-group-name">Critic</span>
+        <span class="node-card-model opus">Opus</span>
+        <span style="color:var(--border);margin:0 4px">+</span>
+        <span class="node-dot dot-sonnet" aria-hidden="true"></span>
+        <span class="agent-group-name">Builder</span>
+        <span class="node-card-model sonnet">Sonnet</span>
+      </div>
+      <section class="phase-section" style="margin-bottom:0;opacity:1;transform:none" aria-labelledby="phase-1-title">
+        <div class="phase-header">
+          <span class="phase-badge" aria-hidden="true">1</span>
+          <h2 class="phase-title" id="phase-1-title">Review — Critic Loop & Tests</h2>
+        </div>
+        <p class="phase-desc">Explorer maps the relevant files, then the critic loop begins. The critic evaluates, and if it finds issues, a builder fixes them — repeating until PASS or 3 iterations.</p>
+
+        <div class="code-excerpt" role="region" aria-label="Critic iteration rules excerpt">
+          <span class="code-excerpt-label">commands/review.md</span>
+          <pre>Invoke critic with exactly this context:
+<span class="kw">-</span> <span class="st">Iteration 1:</span> pass the list of new/changed files
+  for the critic to read
+<span class="kw">-</span> <span class="st">Iteration 2+:</span> pass only the raw git diff HEAD
+  output — do NOT re-pass the file list; the critic
+  works from the diff alone</pre>
+        </div>
+
+        <div class="callout-box callout-blue" role="note">
+          <span class="callout-icon" aria-hidden="true">&#9432;</span>
+          <span>Same iteration pattern as /build's adversarial loop — file list on first pass, diff-only thereafter. The difference: /review is inspection-focused, not build-focused. It hardens existing code rather than building new features.</span>
+        </div>
+
+        <div class="code-excerpt" role="region" aria-label="Status and silence rules excerpt">
+          <span class="code-excerpt-label">commands/review.md</span>
+          <pre><span class="st">## Rules</span>
+<span class="kw">-</span> <span class="kw">Never change task status</span> — review is an
+  inspection tool only; status changes are
+  owned by /build
+<span class="kw">-</span> <span class="kw">Never interrupt or ask about tasks if none
+  found</span> — proceed silently without tracking
+<span class="kw">-</span> Push after every single backlog operation
+<span class="kw">-</span> Use backlog CLI via Bash — do NOT use MCP tools</pre>
+        </div>
+
+        <div class="callout-box callout-red" role="note">
+          <span class="callout-icon" aria-hidden="true">&#9888;</span>
+          <span>These are the key behavioral constraints that distinguish /review from /build. Review never moves a task's status — it only appends notes. It never interrupts the user about missing tasks. Status lifecycle is exclusively owned by /build.</span>
+        </div>
+
+        <div class="code-excerpt" role="region" aria-label="Test verification excerpt">
+          <span class="code-excerpt-label">commands/review.md</span>
+          <pre>On <span class="st">PASS</span>: invoke tester to verify nothing broke
+Report: iteration count, issues found, issues
+resolved, test result</pre>
+        </div>
+
+        <div class="callout-box callout-green" role="note">
+          <span class="callout-icon" aria-hidden="true">&#10003;</span>
+          <span>On PASS, the tester runs to verify that the critic's approved state hasn't broken any existing tests. The final report gives a complete picture: how many iterations, what was found, what was fixed, and whether tests pass.</span>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>Apache 2.0 · Built with Claude Agent Flow · <a href="index.html">Home</a> · <a href="https://github.com/timgranlundmarsden/claude-agent-flow" target="_blank" rel="noopener noreferrer">GitHub</a></footer>
+
+<script>
+  // ── Anchor link: immediately show targeted section ──
+  if (window.location.hash) {
+    var target = document.querySelector(window.location.hash);
+    if (target) {
+      target.classList.add('visible');
+      var pv = document.querySelector('.pipeline-vertical');
+      if (pv) pv.classList.add('visible');
+    }
+  }
+
+  const pipelineEl = document.querySelector('.pipeline-vertical');
+  const pipelineObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); pipelineObs.unobserve(e.target); }
+    });
+  }, { threshold: 0.15 });
+  if (pipelineEl) pipelineObs.observe(pipelineEl);
+
+  const agentObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); agentObs.unobserve(e.target); }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.agent-group').forEach(el => agentObs.observe(el));
+
+  if (!window.IntersectionObserver) {
+    if (pipelineEl) pipelineEl.classList.add('visible');
+    document.querySelectorAll('.agent-group').forEach(el => el.classList.add('visible'));
+  }
+</script>
+
+<noscript>
+  <style>
+    .node-card    { opacity: 1 !important; transform: none !important; }
+    .adv-loop     { opacity: 1 !important; transform: none !important; }
+    .phase-section { opacity: 1 !important; transform: none !important; }
+    .agent-group  { opacity: 1 !important; transform: none !important; }
+  </style>
+</noscript>
+
+</body>
+</html>

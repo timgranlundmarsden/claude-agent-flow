@@ -1,0 +1,150 @@
+name: Agent Flow Backlog Status Change
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - backlog
+    paths:
+      - 'backlog/tasks/**.md'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch enough history to reach the before-push SHA
+          fetch-depth: 0
+
+      - name: Detect status changes and notify n8n
+        env:
+          N8N_BACKLOG_WEBHOOK_URL: ${{ secrets.N8N_BACKLOG_WEBHOOK_URL }}
+          BACKLOG_NOTIFY_FROM: ${{ secrets.BACKLOG_NOTIFY_FROM }}
+          BACKLOG_PROJECT_NAME: ${{ github.event.repository.name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -uo pipefail
+          ERRORS=0
+
+          # Fail with clear error if required secrets are not configured
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+          validate_secrets \
+            $'N8N_BACKLOG_WEBHOOK_URL\nBACKLOG_NOTIFY_FROM' \
+            "" \
+            "Backlog Notify" || exit 1
+
+          # On the very first push to a branch, before SHA is all zeros.
+          # The file still has history in the repo — use HEAD~1 (the parent of the pushed commit)
+          # as the reference point for what the file looked like before this push.
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] || [ -z "$BEFORE_SHA" ]; then
+            echo "First push to this branch; deriving before-SHA from merge base with main."
+            BEFORE_SHA=$(git merge-base HEAD origin/main 2>/dev/null) || {
+              echo "No merge base found — nothing to diff against. Skipping."
+              exit 0
+            }
+          fi
+
+          # Find task files changed across the entire push (before → HEAD, not just last commit)
+          CHANGED=$(git -c core.quotePath=false diff --name-only "$BEFORE_SHA" HEAD -- 'backlog/tasks/*.md' 2>/dev/null || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No task status files changed in this push."
+            exit 0
+          fi
+
+          while IFS= read -r FILE; do
+            [ -f "$FILE" ] || continue
+
+            # Task ID and title from the file's frontmatter fields
+            TASK_ID=$(grep -m1 '^id:' "$FILE" | sed 's/^id:[[:space:]]*//' || true)
+            if [ -z "$TASK_ID" ]; then
+              echo "::warning::No id field found in $FILE — skipping."
+              continue
+            fi
+
+            # New status from the file as it exists after the push
+            NEW_STATUS=$(grep -m1 '^status:' "$FILE" | sed 's/^status:[[:space:]]*//' || true)
+            if [ -z "$NEW_STATUS" ]; then
+              echo "::warning::No status field found in $FILE — skipping."
+              continue
+            fi
+
+            # Previous status: diff the file between the before-push SHA and HEAD.
+            # This is correct regardless of how many commits were in the push, and
+            # regardless of which commit last touched this specific file.
+            # grep returns 1 when no match — || true prevents pipefail from aborting the script.
+            FROM_STATUS=$(git diff "$BEFORE_SHA" HEAD -- "$FILE" | grep '^-status:' | sed 's/^-status:[[:space:]]*//' || true)
+            # Fallback: read the status field directly from the before-push commit tree
+            if [ -z "$FROM_STATUS" ]; then
+              FROM_STATUS=$(git show "${BEFORE_SHA}:${FILE}" 2>/dev/null | grep -m1 '^status:' | sed 's/^status:[[:space:]]*//' || true)
+            fi
+
+            # Skip if status did not actually change
+            if [ "$FROM_STATUS" = "$NEW_STATUS" ]; then
+              echo "$TASK_ID: status unchanged ('$NEW_STATUS') — skipping."
+              continue
+            fi
+
+            TASK_TITLE=$(grep -m1 '^title:' "$FILE" | sed 's/^title:[[:space:]]*//' || true)
+
+            # Extract branch name from GITHUB_REF (e.g., refs/heads/claude/branch-name → claude/branch-name)
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            # Extract just the repository name (strips owner/ prefix from owner/repo)
+            REPO_NAME="${GITHUB_REPOSITORY##*/}"
+
+            # Format the change description
+            if [ -n "$FROM_STATUS" ]; then
+              CHANGE_DESC="Status moved from '${FROM_STATUS}' to '${NEW_STATUS}'"
+            else
+              CHANGE_DESC="Status set to '${NEW_STATUS}'"
+            fi
+
+            # Create HTML-formatted message with icons and bold labels
+            # NOTE: Do not end MSG_BODY with \n\n — bash command substitution
+            # strips trailing newlines. Instead, add leading \n\n when appending.
+            MSG_BODY=$(printf '<b>✅ Task Update</b>\n\n📦 <b>Repository:</b> %s\n\n🤖 <b>Branch:</b> %s\n\n📋 <b>Task:</b> %s - %s\n\n🔄 <b>Change:</b> %s' "$REPO_NAME" "$BRANCH_NAME" "$TASK_ID" "${TASK_TITLE:-Untitled}" "$CHANGE_DESC")
+
+            # Append PR hyperlink for "Ready for Review" status changes
+            if [ "$NEW_STATUS" = "Ready for Review" ]; then
+              PR_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                "https://api.github.com/repos/${GH_REPOSITORY}/pulls?head=${GH_REPOSITORY_OWNER}:${BRANCH_NAME}&state=open" \
+                | jq -r '.[0].html_url // empty' || true)
+              if [ -n "$PR_URL" ]; then
+                MSG_BODY=$(printf '%s\n\n🔗 <b>Pull Request:</b> <a href="%s">Review PR</a>' "$MSG_BODY" "$PR_URL")
+              fi
+            fi
+
+            PAYLOAD=$(jq -n \
+              --arg task_id   "$TASK_ID" \
+              --arg title     "${TASK_TITLE:-Untitled}" \
+              --arg From      "$BACKLOG_NOTIFY_FROM" \
+              --arg status    "$NEW_STATUS" \
+              --arg Body      "$MSG_BODY" \
+              --arg project   "$BACKLOG_PROJECT_NAME" \
+              --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              '{task_id: $task_id, title: $title, From: $From, status: $status, Body: $Body, project: $project, timestamp: $timestamp}')
+
+            echo "Notifying: $MSG_BODY"
+            HTTP_STATUS=$(curl -s -o /tmp/n8n_response.txt -w "%{http_code}" \
+              -X POST "$N8N_BACKLOG_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d "$PAYLOAD")
+
+            if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+              echo "  ✓ $TASK_ID notified (HTTP $HTTP_STATUS)"
+            else
+              RESPONSE_BODY=$(cat /tmp/n8n_response.txt)
+              echo "::error title=Webhook POST failed ($TASK_ID)::HTTP $HTTP_STATUS from n8n. URL: $N8N_BACKLOG_WEBHOOK_URL — Response: $RESPONSE_BODY"
+              ERRORS=1
+            fi
+
+          done < <(printf '%s\n' "$CHANGED")
+
+          [ "$ERRORS" -eq 1 ] && exit 1
+          exit 0

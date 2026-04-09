@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Started — Claude Agent Flow</title>
+  <meta name="description" content="Get started with Claude Agent Flow — install in one command, configure your first multi-agent pipeline.">
+  <meta property="og:title" content="Get Started — Claude Agent Flow">
+  <meta property="og:description" content="Get started with Claude Agent Flow — install in one command, configure your first multi-agent pipeline.">
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/getting-started.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Agent Flow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Get Started — Claude Agent Flow">
+  <meta name="twitter:description" content="Get started with Claude Agent Flow — install in one command, configure your first multi-agent pipeline.">
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/getting-started.html">
+  <style>
+    /* ── CSS TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    /* ── RESET & BASE STYLES ─────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; font-family: var(--font);
+      background: var(--bg); color: var(--text);
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0,113,227,.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(124,58,237,.015) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+    .page {
+      max-width: 1180px; margin: 0 auto; padding: 0 24px;
+      min-width: 0; /* Prevent flex/grid overflow */
+    }
+    @media (max-width: 768px) {
+      .page { padding: 0 20px; }
+    }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky; top: 0;
+      background: rgba(251,251,253,0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+    }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link {
+      color: var(--text-secondary); display: flex; align-items: center;
+      opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none;
+    }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto; font-size: 14px;
+    }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 12px; border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle {
+      color: var(--text-secondary); font-size: 14px;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      min-width: 140px; padding: 6px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+      z-index: 200;
+    }
+    .nav-dropdown:hover .nav-dropdown-menu,
+    .nav-dropdown:focus-within .nav-dropdown-menu {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+    .nav-dropdown-menu a {
+      display: block; padding: 8px 12px; border-radius: 6px;
+      color: var(--text); text-decoration: none; font-size: 13px;
+      transition: background 0.15s;
+    }
+    .nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+    .nav-toggle-cb {
+      position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+    }
+    .burger-icon {
+      display: none; cursor: pointer;
+      width: 44px; height: 44px;
+      align-items: center; justify-content: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow);
+      flex-shrink: 0; margin-left: auto;
+    }
+    .burger-bar, .burger-bar::before, .burger-bar::after {
+      display: block; width: 20px; height: 2px;
+      background: var(--text); border-radius: 1px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top: 6px; }
+    .nav-toggle-cb:checked ~ header .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ header .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ header .burger-bar::after { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 999; opacity: 0; visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s; cursor: pointer;
+    }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer {
+      position: fixed; top: 0; right: 0;
+      width: min(260px, 75vw); height: 100%;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+      padding: 72px 20px 24px; overflow-y: auto; gap: 4px;
+    }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a {
+      display: flex; align-items: center; min-height: 44px;
+      padding: 10px 14px; font-size: 14px; color: var(--text);
+      text-decoration: none; border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 44px; height: 44px; display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: var(--text-secondary);
+      cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s;
+    }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    .drawer-reference-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-secondary);
+      padding: 12px 14px 4px;
+    }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover { color: var(--blue); }
+    @media (max-width: 768px) {
+      .nav-links, .nav-dropdown { display: none !important; }
+      .burger-icon { display: flex !important; }
+    }
+    @media (min-width: 768.01px) {
+      .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; }
+    }
+
+    /* ── HERO SECTION ─────────────────────────────────────────── */
+    .hero {
+      padding: 40px 0 20px; text-align: center;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface-alt) 100%);
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 0 0 20px;
+    }
+    .hero h1 {
+      font-family: var(--font); font-size: clamp(44px, 8vw, 72px);
+      font-weight: 700; line-height: 1.1; margin: 0 0 24px;
+      color: var(--text);
+    }
+    .subtitle {
+      font-size: clamp(18px, 3vw, 22px); line-height: 1.4;
+      color: var(--text-secondary); margin: 0 auto 0;
+      max-width: 600px;
+    }
+
+    /* ── SECTIONS ─────────────────────────────────────────────── */
+    section {
+      padding: 20px 0;
+    }
+
+    /* ── INSTALL SECTION ─────────────────────────────────────────── */
+    .install-section h2 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 700;
+      margin: 0 0 16px; color: var(--text); text-align: center;
+    }
+
+    .install-command-main {
+      background: #1a1a1f; color: rgba(255,255,255,.85);
+      font-family: var(--mono); border-radius: var(--radius-md);
+      padding: 16px 20px; overflow-x: auto;
+      margin: 0 0 12px;
+      font-size: 15px; box-shadow: var(--shadow);
+    }
+
+    .install-note {
+      text-align: center; margin-bottom: 16px;
+      color: var(--text-secondary); font-size: 16px;
+    }
+
+    .scope-commands {
+      margin-top: 16px;
+    }
+    .scope-commands h3 {
+      font-size: 20px; font-weight: 600; margin-bottom: 12px;
+      color: var(--text); text-align: center;
+    }
+
+    .scope-command-item {
+      margin-bottom: 20px;
+    }
+    .scope-command-item .command-label {
+      font-size: 14px; color: var(--text-secondary);
+      margin-bottom: 8px; font-family: var(--mono);
+    }
+    .scope-command-code {
+      background: #1a1a1f; color: rgba(255,255,255,.85);
+      font-family: var(--mono); border-radius: var(--radius-md);
+      padding: 16px 20px; overflow-x: auto; font-size: 14px;
+    }
+
+    /* ── SCOPES SECTION ─────────────────────────────────────────── */
+    .scopes-section h2 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 700;
+      margin: 0 0 40px; color: var(--text); text-align: center;
+    }
+
+    .scopes-grid {
+      display: grid; gap: 24px; margin-top: 16px;
+    }
+    @media (min-width: 768px) {
+      .scopes-grid { grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    }
+
+    .scope-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px 28px;
+      box-shadow: var(--shadow);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .scope-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+    }
+    .scope-card.recommended {
+      border: 2px solid var(--blue);
+    }
+
+    .scope-card h3 {
+      margin: 0 0 8px; font-size: 22px; font-weight: 700;
+      color: var(--text);
+    }
+    .scope-card .card-subtitle {
+      font-size: 14px; color: var(--text-secondary);
+      margin-bottom: 20px; line-height: 1.4;
+    }
+    .scope-card .card-description {
+      font-size: 15px; color: var(--text-secondary);
+      margin-bottom: 16px; line-height: 1.5;
+    }
+    .best-for {
+      font-size: 13px; color: var(--text-secondary);
+      margin-bottom: 16px; font-weight: 600;
+    }
+
+    /* ── RECOMMENDED BADGE ──────────────────────────────────────── */
+    .recommended-badge {
+      position: absolute; top: -8px; left: 24px;
+      background: var(--blue); color: white; border: none;
+      padding: 4px 12px; border-radius: 12px;
+      font-size: 11px; font-weight: 600; letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    /* ── PREREQUISITES SECTION ────────────────────────────────────── */
+    .prereqs-section h2 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 700;
+      margin: 0 0 16px; color: var(--text); text-align: center;
+    }
+
+    .prereqs-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 32px;
+      margin: 0 auto;
+      max-width: 600px;
+      box-shadow: var(--shadow);
+    }
+
+    .prereqs-list {
+      margin: 0; padding: 0; list-style: none;
+      color: var(--text-secondary); line-height: 1.6;
+    }
+    .prereqs-list li {
+      position: relative; padding-left: 20px; margin-bottom: 8px;
+    }
+    .prereqs-list li:before {
+      content: '✓'; position: absolute; left: 0; top: 0;
+      color: var(--haiku); font-weight: 600;
+    }
+
+    /* ── WHAT YOU GET SECTION ────────────────────────────────────── */
+    .what-you-get h2 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 700;
+      margin: 0 0 40px; color: var(--text); text-align: center;
+    }
+
+    .what-you-get-grid {
+      display: grid; gap: 40px;
+    }
+    @media (min-width: 768px) {
+      .what-you-get-grid { grid-template-columns: repeat(3, 1fr); gap: 48px; }
+    }
+
+    .wyg-section h3 {
+      font-size: 24px; font-weight: 700; margin: 0 0 20px;
+      color: var(--text); text-align: center;
+    }
+
+    .agents-table, .commands-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 14px; margin-top: 16px;
+    }
+    .agents-table td, .commands-table td {
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .agents-table tr:nth-child(even), .commands-table tr:nth-child(even) {
+      background: var(--surface-alt);
+    }
+    .agents-table td:first-child, .commands-table td:first-child {
+      font-family: var(--mono); color: var(--blue); font-weight: 600;
+    }
+    .agents-table td:last-child, .commands-table td:last-child {
+      color: var(--text-secondary);
+    }
+
+    .skills-pills {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
+    }
+    .skill-pill {
+      background: var(--surface-alt); color: var(--text);
+      padding: 4px 12px; border-radius: 16px;
+      font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+    }
+
+    /* ── FOOTER ─────────────────────────────────────────────── */
+    footer {
+      padding: 40px 0; text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 14px;
+    }
+    footer a {
+      color: var(--blue); text-decoration: none;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── MOBILE ADJUSTMENTS ─────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .hero { padding: 30px 0 40px; }
+      .scope-card { padding: 28px 20px 24px; }
+      .prereqs-box { padding: 20px 24px; }
+      .install-command-main, .scope-command-code {
+        font-size: 12px; padding: 14px 16px;
+      }
+      .what-you-get-grid { grid-template-columns: 1fr; gap: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html" class="nav-active" aria-current="page">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html" class="nav-active" aria-current="page">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="page">
+        <div class="eyebrow">GET STARTED</div>
+        <h1>Up and Running in Minutes</h1>
+        <div class="subtitle">A curl command, a scope choice, and you're in.</div>
+      </div>
+    </section>
+
+    <!-- Install Section -->
+    <section class="install-section">
+      <div class="page">
+        <h2>Install</h2>
+        <pre class="install-command-main">curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash</pre>
+        <div class="install-note">Run from inside your project's git repository. The installer prompts you to choose a scope.</div>
+
+        <div class="scope-commands">
+          <h3>Scope-specific commands:</h3>
+
+          <div class="scope-command-item">
+            <div class="command-label"># Plugin only (lightest)</div>
+            <pre class="scope-command-code">curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope plugin</pre>
+          </div>
+
+          <div class="scope-command-item">
+            <div class="command-label"># Plugin + GitHub Actions</div>
+            <pre class="scope-command-code">curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope plugin+github</pre>
+          </div>
+
+          <div class="scope-command-item">
+            <div class="command-label"># Sandbox (fully self-contained)</div>
+            <pre class="scope-command-code">curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope sandbox</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scopes Section -->
+    <section class="scopes-section">
+      <div class="page">
+        <h2>Scopes</h2>
+        <div class="scopes-grid">
+          <!-- Plugin -->
+          <div class="scope-card">
+            <h3>plugin</h3>
+            <div class="card-subtitle">Lightest</div>
+            <div class="card-description">Installs as a <strong>Claude Code Plugin</strong> — the 12-agent team, commands, and skills are managed by Claude Code's plugin system and kept up to date automatically. Your repo gets only the connecting config: CLAUDE.md patch, settings.json, .gitattributes, .mcp.json, Backlog.md init.</div>
+            <div class="best-for">Best for: Teams managing their own CI/CD</div>
+          </div>
+
+          <!-- Plugin + GitHub -->
+          <div class="scope-card recommended">
+            <div class="recommended-badge">Recommended</div>
+            <h3>plugin+github</h3>
+            <div class="card-subtitle">Recommended</div>
+            <div class="card-description">Everything in <strong>plugin</strong> (Claude Code Plugin install, auto-updated agents), plus GitHub Actions workflows for automated AI code review on PRs and Telegram backlog notifications.</div>
+            <div class="best-for">Best for: GitHub Actions users</div>
+          </div>
+
+          <!-- Sandbox -->
+          <div class="scope-card">
+            <h3>sandbox</h3>
+            <div class="card-subtitle">Self-contained</div>
+            <div class="card-description">Everything fully vendored into your repo — agents, commands, and skills live alongside your code with no external plugin dependency at runtime. Full pipeline works inside sandboxed environments including Claude Code web (claude.ai/code)</div>
+            <div class="best-for">Best for: Claude Code web or air-gapped environments</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Prerequisites -->
+    <section class="prereqs-section">
+      <div class="page">
+        <h2>Prerequisites</h2>
+        <div class="prereqs-box">
+          <ul class="prereqs-list">
+            <li>Claude Code CLI installed</li>
+            <li>Git repository initialised in your project</li>
+            <li>Node.js 18+ (for MCP servers and Backlog.md)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Your First Task -->
+    <section class="first-task-section">
+      <div class="page">
+        <h2 style="font-size:clamp(32px,5vw,48px);font-weight:700;margin:0 0 16px;color:var(--text);text-align:center;">Your First Task</h2>
+        <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px;">
+            <span style="flex-shrink:0;width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">1</span>
+            <div><strong style="display:block;margin-bottom:4px;">Open Claude Code</strong><span style="color:var(--text-secondary);font-size:14px;">Open Claude Code in your project root.</span></div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px;">
+            <span style="flex-shrink:0;width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">2</span>
+            <div style="min-width:0;"><strong style="display:block;margin-bottom:4px;">Plan your feature</strong><pre style="background:#1a1a1f;color:rgba(255,255,255,.85);font-family:var(--mono);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin:8px 0 0;overflow-x:auto;">/plan I want to build a CV web page</pre></div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px;">
+            <span style="flex-shrink:0;width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">3</span>
+            <div><strong style="display:block;margin-bottom:4px;">Build your feature</strong><span style="color:var(--text-secondary);font-size:14px;display:block;margin-bottom:8px;">Once planning is complete:</span><pre style="background:#1a1a1f;color:rgba(255,255,255,.85);font-family:var(--mono);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin:0;overflow-x:auto;">/build @my-plan.md</pre></div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px 24px;">
+            <span style="flex-shrink:0;width:28px;height:28px;background:var(--haiku);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">4</span>
+            <div><strong style="display:block;margin-bottom:4px;">Review the PR</strong><span style="color:var(--text-secondary);font-size:14px;">The pipeline creates a PR — reviewed, tested, and documented — ready for your sign-off.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- What You Get -->
+    <section class="what-you-get">
+      <div class="page">
+        <h2>What You Get</h2>
+        <div class="what-you-get-grid">
+          <!-- 12 Agents -->
+          <div class="wyg-section">
+            <h3>12 Agents</h3>
+            <table class="agents-table">
+              <tr><td>orchestrator</td><td>Coordinates the team</td></tr>
+              <tr><td>explorer</td><td>Analyzes codebase</td></tr>
+              <tr><td>architect</td><td>Designs system structure</td></tr>
+              <tr><td>ideator</td><td>Generates creative solutions</td></tr>
+              <tr><td>researcher</td><td>Gathers information</td></tr>
+              <tr><td>frontend</td><td>UI/UX implementation</td></tr>
+              <tr><td>backend</td><td>Server-side logic</td></tr>
+              <tr><td>storage</td><td>Database & persistence</td></tr>
+              <tr><td>tester</td><td>Quality assurance</td></tr>
+              <tr><td>critic</td><td>Adversarial review</td></tr>
+              <tr><td>reviewer</td><td>Final code review</td></tr>
+              <tr><td>author</td><td>Documentation</td></tr>
+            </table>
+          </div>
+
+          <!-- 13 Commands -->
+          <div class="wyg-section">
+            <h3>12 Commands</h3>
+            <table class="commands-table">
+              <tr><td>/build</td><td>Full pipeline</td></tr>
+              <tr><td>/plan</td><td>Planning session</td></tr>
+              <tr><td>/review</td><td>Code review</td></tr>
+              <tr><td>/explore</td><td>Codebase analysis</td></tr>
+              <tr><td>/rebase</td><td>Git workflow</td></tr>
+              <tr><td>/install</td><td>System setup</td></tr>
+              <tr><td>/diagnostic</td><td>Health check</td></tr>
+              <tr><td>/help</td><td>Documentation</td></tr>
+              <tr><td>/backlog-list</td><td>Task management</td></tr>
+              <tr><td>/check-pr</td><td>PR validation</td></tr>
+              <tr><td>/external-review</td><td>AI code review</td></tr>
+              <tr><td>/token-analyser</td><td>Cost tracking</td></tr>
+            </table>
+          </div>
+
+          <!-- 18 Skills -->
+          <div class="wyg-section">
+            <h3>18 Skills</h3>
+            <div class="skills-pills">
+              <div class="skill-pill">agent-development</div>
+              <div class="skill-pill">ascii-box-tables</div>
+              <div class="skill-pill">backlog-md</div>
+              <div class="skill-pill">backlog-tpm</div>
+              <div class="skill-pill">brainstorming</div>
+              <div class="skill-pill">command-development</div>
+              <div class="skill-pill">external-code-review</div>
+              <div class="skill-pill">frontend-design</div>
+              <div class="skill-pill">hook-development</div>
+              <div class="skill-pill">mcp-integration</div>
+              <div class="skill-pill">playwright-cli</div>
+              <div class="skill-pill">playwright-cli-helpers</div>
+              <div class="skill-pill">plugin-settings</div>
+              <div class="skill-pill">plugin-structure</div>
+              <div class="skill-pill">skill-development</div>
+              <div class="skill-pill">token-analyser</div>
+              <div class="skill-pill">ways-of-working</div>
+              <div class="skill-pill">agent-flow-init-check</div>
+              <div class="skill-pill">log-visualiser-converter</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="page">
+      Apache 2.0 · Built with Claude Agent Flow · <a href="index.html">Home</a>
+    </div>
+  </footer>
+</body>
+</html>

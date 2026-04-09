@@ -1,0 +1,508 @@
+{
+  "title": "Console Visualiser",
+  "subtitle": "Build an interactive demo page that replays claude agent flow build sessions with console output and flow diagrams",
+  "prompt": "/build @plans/2026-04-06-2012-agent-flow-demo-visualiser.md",
+  "duration_minutes": 71,
+  "estimated_cost": 4.32,
+  "agents": [
+    {
+      "id": "orchestrator",
+      "label": "Orchestrator",
+      "model": "opus",
+      "phase": "build",
+      "x": 60,
+      "y": 80
+    },
+    {
+      "id": "explorer",
+      "label": "Explorer",
+      "model": "sonnet",
+      "phase": "build",
+      "x": 280,
+      "y": 40
+    },
+    {
+      "id": "builder",
+      "label": "Builder",
+      "model": "sonnet",
+      "phase": "build",
+      "x": 280,
+      "y": 160
+    },
+    {
+      "id": "critic",
+      "label": "Critic",
+      "model": "opus",
+      "phase": "build",
+      "x": 500,
+      "y": 160
+    },
+    {
+      "id": "reviewer",
+      "label": "Reviewer",
+      "model": "haiku",
+      "phase": "build",
+      "x": 500,
+      "y": 40
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": "orchestrator",
+      "to": "explorer",
+      "type": "normal",
+      "label": "explore"
+    },
+    {
+      "id": "t2",
+      "from": "orchestrator",
+      "to": "builder",
+      "type": "normal",
+      "label": "build"
+    },
+    {
+      "id": "t3",
+      "from": "builder",
+      "to": "critic",
+      "type": "normal",
+      "label": "review"
+    },
+    {
+      "id": "t4",
+      "from": "critic",
+      "to": "builder",
+      "type": "fail",
+      "label": "fix"
+    },
+    {
+      "id": "t5",
+      "from": "critic",
+      "to": "reviewer",
+      "type": "pass",
+      "label": "pass"
+    },
+    {
+      "id": "t6",
+      "from": "reviewer",
+      "to": "orchestrator",
+      "type": "pass",
+      "label": "done"
+    }
+  ],
+  "events": [
+    {
+      "kind": "phase",
+      "text": "STARTING /BUILD",
+      "result": "start",
+      "phase": "build"
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "activate",
+      "text": "Orchestrator",
+      "status": "dispatching..."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "message",
+      "text": "Received brief: Build Agent Flow Visualiser (TASK-23).",
+      "status": "reading brief"
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "thinking",
+      "text": "Need to dispatch explorer first to understand existing patterns."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-call",
+      "tool": "dispatch_agent",
+      "args": "agent: explorer\ntask: Examine docs/public/ for existing HTML patterns, CSS variables, nav structure",
+      "status": "dispatching explorer"
+    },
+    {
+      "kind": "transition",
+      "transition": "t1"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "explorer",
+      "kind": "activate",
+      "text": "Explorer",
+      "status": "reading codebase..."
+    },
+    {
+      "agent": "explorer",
+      "kind": "tool-call",
+      "tool": "read_file",
+      "args": "docs/public/adversarial-loop.html",
+      "status": "reading files"
+    },
+    {
+      "agent": "explorer",
+      "kind": "tool-result",
+      "text": "Found: CSS variables (:root), breadcrumb nav pattern, footer HTML, DM Sans font import. Files: adversarial-loop.html, agent-orchestration-pipeline.html (12 total)."
+    },
+    {
+      "agent": "explorer",
+      "kind": "thinking",
+      "text": "Key patterns: --console-bg: #1d1d1f, existing keyframes, exact nav HTML to copy."
+    },
+    {
+      "agent": "explorer",
+      "kind": "message",
+      "text": "Exploration complete. Found 12 existing pages with consistent design system. Patterns extracted.",
+      "status": "done"
+    },
+    {
+      "kind": "pause",
+      "ms": 300
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "activate",
+      "text": "Orchestrator",
+      "status": "briefing builder"
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-call",
+      "tool": "dispatch_agent",
+      "args": "agent: builder\ntask: Build docs/public/visualiser.html per spec",
+      "status": "dispatching builder"
+    },
+    {
+      "kind": "transition",
+      "transition": "t2"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "builder",
+      "kind": "activate",
+      "text": "Builder",
+      "status": "designing..."
+    },
+    {
+      "agent": "builder",
+      "kind": "thinking",
+      "text": "Aesthetic direction: terminal-noir / engineering dashboard. JetBrains Mono fallback chain + DM Sans for chrome."
+    },
+    {
+      "agent": "builder",
+      "kind": "message",
+      "text": "Writing skeleton with section placeholders first (file >200 lines).",
+      "status": "scaffolding"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "write_file",
+      "args": "docs/public/visualiser.html (skeleton)",
+      "status": "writing skeleton"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "File created: 28 lines. Skeleton with 10 section placeholders."
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "edit_file",
+      "args": "Fill CSS sections (variables, reset, layout, console, SVG, controls, nav, animations)",
+      "status": "filling CSS"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "CSS section added: 380 lines. All tokens from spec applied."
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "edit_file",
+      "args": "Fill HTML sections (nav, panels, controls bar)",
+      "status": "filling HTML"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "HTML section added: 120 lines. IDs match spec: #console-scroll, #flow-svg, etc."
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "edit_file",
+      "args": "Fill JS IIFE: LogLoader, SVGController, ConsoleRenderer, PlaybackEngine",
+      "status": "filling JS"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "JS IIFE added: 620 lines across 4 modules. All modules implemented."
+    },
+    {
+      "agent": "builder",
+      "kind": "message",
+      "text": "Implementation complete. Running visual verification.",
+      "status": "verifying"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "bash",
+      "args": "bash .claude/skills/playwright-cli-helpers/scripts/visual-check.sh docs/public/visualiser.html",
+      "status": "visual check"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "PASS\nNo horizontal overflow at 375px (mobile)\nNo horizontal overflow at 768px (tablet)\nNo horizontal overflow at 1280px (desktop)"
+    },
+    {
+      "agent": "builder",
+      "kind": "message",
+      "text": "Visual verification passed. Dispatching to critic.",
+      "status": "done"
+    },
+    {
+      "kind": "transition",
+      "transition": "t3"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "critic",
+      "kind": "activate",
+      "text": "Critic",
+      "status": "reviewing..."
+    },
+    {
+      "agent": "critic",
+      "kind": "thinking",
+      "text": "Checking: XSS prevention (textContent), setInterval vs setTimeout, viewBox mutation, SRI hashes..."
+    },
+    {
+      "agent": "critic",
+      "kind": "message",
+      "text": "Reviewing implementation for correctness, security, and spec compliance.",
+      "status": "auditing"
+    },
+    {
+      "agent": "critic",
+      "kind": "tool-call",
+      "tool": "read_file",
+      "args": "docs/public/visualiser.html",
+      "status": "reading file"
+    },
+    {
+      "agent": "critic",
+      "kind": "tool-result",
+      "text": "File: 780 lines.\n- LogLoader: \u2713 fetch with try/catch, CORS error message exact\n- SVGController: \u2713 viewBox set once, \u2713 aria-labels, \u2713 pulseGlow\n- ConsoleRenderer: \u2713 textContent only, \u2713 auto-scroll, \u2713 details>summary\n- PlaybackEngine: \u2713 chained setTimeout, \u2713 seekTo replay, \u2713 keyboard shortcuts\n- Issue found: LogLoader validate() doesn't check transitions[i].from/to existence"
+    },
+    {
+      "agent": "critic",
+      "kind": "thinking",
+      "text": "Missing transition validation is minor but could cause silent SVG errors. Should fix."
+    },
+    {
+      "agent": "critic",
+      "kind": "verdict",
+      "text": "FAIL \u2014 transition schema validation incomplete",
+      "result": "fail",
+      "status": "FAIL"
+    },
+    {
+      "kind": "transition",
+      "transition": "t4"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "builder",
+      "kind": "activate",
+      "text": "Builder",
+      "status": "fixing..."
+    },
+    {
+      "agent": "builder",
+      "kind": "message",
+      "text": "Fixing: adding transitions[i].from/to presence check in validate().",
+      "status": "fixing"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-call",
+      "tool": "edit_file",
+      "args": "Add transitions validation in LogLoader.validate()",
+      "status": "editing"
+    },
+    {
+      "agent": "builder",
+      "kind": "tool-result",
+      "text": "Validation added: checks transitions[i].from and transitions[i].to exist."
+    },
+    {
+      "agent": "builder",
+      "kind": "message",
+      "text": "Fix applied. Re-dispatching to critic.",
+      "status": "done"
+    },
+    {
+      "kind": "transition",
+      "transition": "t3"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "critic",
+      "kind": "activate",
+      "text": "Critic",
+      "status": "re-reviewing..."
+    },
+    {
+      "agent": "critic",
+      "kind": "tool-call",
+      "tool": "read_file",
+      "args": "docs/public/visualiser.html",
+      "status": "reading"
+    },
+    {
+      "agent": "critic",
+      "kind": "tool-result",
+      "text": "Transition validation present. All prior issues resolved.\n- XSS: \u2713 all external content via textContent\n- Animation: \u2713 setTimeout chained, never setInterval\n- ViewBox: \u2713 set once in _computeViewBox\n- Schema: \u2713 agents, transitions (from/to), events all validated\n- A11y: \u2713 role=log aria-live=polite, aria-label on SVG nodes\n- Reduced motion: \u2713 prefers-reduced-motion handled"
+    },
+    {
+      "agent": "critic",
+      "kind": "verdict",
+      "text": "PASS \u2014 implementation complete and correct",
+      "result": "pass",
+      "status": "PASS"
+    },
+    {
+      "kind": "transition",
+      "transition": "t5"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "reviewer",
+      "kind": "activate",
+      "text": "Reviewer",
+      "status": "reviewing..."
+    },
+    {
+      "agent": "reviewer",
+      "kind": "message",
+      "text": "Final review: checking spec compliance, design quality, test coverage.",
+      "status": "checking"
+    },
+    {
+      "agent": "reviewer",
+      "kind": "tool-call",
+      "tool": "read_file",
+      "args": "docs/public/visualiser.html",
+      "status": "reading"
+    },
+    {
+      "agent": "reviewer",
+      "kind": "tool-result",
+      "text": "All required IDs present. CSS tokens match spec. Breadcrumb nav exact match. Footer exact match. Four JS modules in IIFE. No external dependencies."
+    },
+    {
+      "agent": "reviewer",
+      "kind": "tool-call",
+      "tool": "Bash",
+      "args": "bash .claude/skills/external-code-review/scripts/external-review.sh",
+      "status": "external code review"
+    },
+    {
+      "agent": "reviewer",
+      "kind": "tool-result",
+      "text": "External review: PASS. Security \u2713, Dependencies \u2713, Accessibility \u2713, Style \u2713"
+    },
+    {
+      "agent": "reviewer",
+      "kind": "message",
+      "text": "TASK-23 complete. External review passed. visualiser.html delivered at spec quality.",
+      "status": "done"
+    },
+    {
+      "kind": "transition",
+      "transition": "t6"
+    },
+    {
+      "kind": "pause",
+      "ms": 400
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "activate",
+      "text": "Orchestrator",
+      "status": "committing changes..."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-call",
+      "tool": "Bash",
+      "args": "git add docs/public/visualiser.html && git commit -m \"TASK-23 - Agent Flow Visualiser\"",
+      "status": "committing changes..."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-result",
+      "text": "[local/visualiser abc5678] TASK-23 - Agent Flow Visualiser\n 1 file changed, 780 insertions(+)"
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-call",
+      "tool": "Bash",
+      "args": "git push -u origin local/visualiser",
+      "status": "pushing to remote..."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-result",
+      "text": "Branch 'local/visualiser' set up to track remote branch."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-call",
+      "tool": "Bash",
+      "args": "gh pr create --title \"TASK-23 - Agent Flow Visualiser\" --body \"...\"",
+      "status": "creating pull request..."
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "tool-result",
+      "text": "https://github.com/example-org/my-project/pull/84"
+    },
+    {
+      "agent": "orchestrator",
+      "kind": "message",
+      "text": "PR created: #84. Task set to Ready for Review.",
+      "status": "pipeline complete"
+    },
+    {
+      "kind": "phase",
+      "text": "BUILD COMPLETE",
+      "result": "end",
+      "phase": "build"
+    }
+  ]
+}

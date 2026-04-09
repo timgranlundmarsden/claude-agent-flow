@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://timgranlundmarsden.github.io/claude-agent-flow/sitemap.xml

@@ -1,0 +1,226 @@
+# Plugin Distribution Tests — validates the published plugin package is sound
+#
+# Runs on PRs and pushes to main. Checks structure, required files,
+# no leaked master-only files, valid JSON, and no unresolved placeholders.
+# Designed for the plugin repo layout (plugins/agent-flow/).
+# In the master repo this workflow is a no-op (paths filter won't match).
+
+name: Plugin Distribution Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'marketplace.json'
+      - 'install.sh'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'marketplace.json'
+      - 'install.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_DIR: plugins/agent-flow
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      # ── Structure checks ─────────────────────────────────────────
+
+      - name: Required directories exist
+        run: |
+          failed=0
+          for dir in agents commands skills .claude-plugin .claude-agent-flow; do
+            if [[ ! -d "$PLUGIN_DIR/$dir" ]]; then
+              echo "FAIL: missing directory $PLUGIN_DIR/$dir"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      - name: Required files exist
+        run: |
+          failed=0
+          files=(
+            "$PLUGIN_DIR/.claude-plugin/plugin.json"
+            "$PLUGIN_DIR/settings.json"
+            "$PLUGIN_DIR/.claude-agent-flow/repo-sync-manifest.yml"
+            "$PLUGIN_DIR/.claude-agent-flow/install-manifest.yml"
+            "$PLUGIN_DIR/.claude-agent-flow/templates/CLAUDE.md.managed"
+            "$PLUGIN_DIR/.claude-agent-flow/templates/.mcp.json"
+            "marketplace.json"
+            "install.sh"
+            "README.md"
+            "CHANGELOG.md"
+            "LICENSE"
+          )
+          for f in "${files[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "FAIL: missing file $f"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      # ── Master-only files must NOT be present ─────────────────────
+
+      - name: No master-only files leaked
+        run: |
+          failed=0
+          leaked=(
+            "$PLUGIN_DIR/commands/plugin-repo-sync.md"
+            "$PLUGIN_DIR/.claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+            "$PLUGIN_DIR/.claude-agent-flow/docs/plugin-repo-sync.md"
+            "$PLUGIN_DIR/.claude-agent-flow/publish-plugin-manifest.yml"
+          )
+          for f in "${leaked[@]}"; do
+            if [[ -f "$f" ]]; then
+              echo "FAIL: master-only file leaked: $f"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      # ── JSON validation ──────────────────────────────────────────
+
+      - name: plugin.json is valid
+        run: |
+          jq empty "$PLUGIN_DIR/.claude-plugin/plugin.json"
+          # Check required fields
+          for field in name description version; do
+            val=$(jq -r ".$field // empty" "$PLUGIN_DIR/.claude-plugin/plugin.json")
+            if [[ -z "$val" ]]; then
+              echo "FAIL: plugin.json missing required field: $field"
+              exit 1
+            fi
+          done
+          echo "OK: plugin.json is valid with required fields"
+
+      - name: marketplace.json is valid
+        run: |
+          jq empty marketplace.json
+          name=$(jq -r '.name // empty' marketplace.json)
+          plugins=$(jq -r '.plugins | length' marketplace.json)
+          if [[ -z "$name" ]]; then
+            echo "FAIL: marketplace.json missing name"
+            exit 1
+          fi
+          if [[ "$plugins" -lt 1 ]]; then
+            echo "FAIL: marketplace.json has no plugins"
+            exit 1
+          fi
+          echo "OK: marketplace.json is valid ($plugins plugin(s))"
+
+      - name: settings.json is valid
+        run: jq empty "$PLUGIN_DIR/settings.json"
+
+      # ── Placeholder checks ────────────────────────────────────────
+
+      - name: No unresolved CHANGEME placeholders
+        run: |
+          matches=$(grep -r "CHANGEME" --include='*.md' --include='*.yml' --include='*.json' --include='*.sh' \
+            --exclude-dir='templates' --exclude-dir='scripts' --exclude-dir='tests' --exclude-dir='fixtures' \
+            "$PLUGIN_DIR" marketplace.json README.md CHANGELOG.md install.sh 2>/dev/null || true)
+          if [[ -n "$matches" ]]; then
+            echo "FAIL: unresolved CHANGEME placeholders found:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "OK: no CHANGEME placeholders"
+
+      - name: repo-sync-manifest.yml is anonymized
+        run: |
+          manifest="$PLUGIN_DIR/.claude-agent-flow/repo-sync-manifest.yml"
+          failed=0
+          source_repo=$(grep '^source_repo:' "$manifest" | sed 's/source_repo: *//;s/"//g')
+          if [[ "$source_repo" != "YOUR-ORG/your-source-repo" ]]; then
+            echo "FAIL: source_repo is not anonymized: $source_repo"
+            failed=1
+          fi
+          while IFS= read -r repo_val; do
+            if [[ ! "$repo_val" =~ ^YOUR-ORG/your-target-repo-[0-9]+$ ]]; then
+              echo "FAIL: target repo is not anonymized: $repo_val"
+              failed=1
+            fi
+          done < <(grep '^ *- *repo:' "$manifest" | sed "s/.*repo: *//;s/\"//g")
+          [[ $failed -eq 0 ]] && echo "OK: repo-sync-manifest.yml is anonymized"
+          exit $failed
+
+      # ── Content sanity checks ─────────────────────────────────────
+
+      - name: Agents directory has content
+        run: |
+          count=$(find "$PLUGIN_DIR/agents" -name '*.md' | wc -l)
+          if [[ "$count" -lt 1 ]]; then
+            echo "FAIL: no agent definitions found"
+            exit 1
+          fi
+          echo "OK: $count agent(s) found"
+
+      - name: Commands directory has content
+        run: |
+          count=$(find "$PLUGIN_DIR/commands" -name '*.md' | wc -l)
+          if [[ "$count" -lt 1 ]]; then
+            echo "FAIL: no command definitions found"
+            exit 1
+          fi
+          echo "OK: $count command(s) found"
+
+      - name: Skills directory has content
+        run: |
+          count=$(find "$PLUGIN_DIR/skills" -name 'SKILL.md' | wc -l)
+          if [[ "$count" -lt 1 ]]; then
+            echo "FAIL: no skill definitions found"
+            exit 1
+          fi
+          echo "OK: $count skill(s) found"
+
+      - name: Required workflows exist
+        run: |
+          failed=0
+          workflows=(
+            ".github/workflows/deploy-pages.yml"
+            ".github/workflows/plugin-distribution-tests.yml"
+          )
+          for f in "${workflows[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "FAIL: missing workflow $f"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      - name: install.sh is executable or has shebang
+        run: |
+          if head -1 install.sh | grep -q '^#!/'; then
+            echo "OK: install.sh has shebang"
+          else
+            echo "FAIL: install.sh missing shebang line"
+            exit 1
+          fi
+
+      # ── No secrets leaked ─────────────────────────────────────────
+
+      - name: No .env or credential files
+        run: |
+          failed=0
+          for pattern in .env .env.local credentials.json service-account.json; do
+            found=$(find "$PLUGIN_DIR" . -maxdepth 1 -name "$pattern" -not -path './.git/*' 2>/dev/null)
+            if [[ -n "$found" ]]; then
+              echo "FAIL: potential secret file found: $found"
+              failed=1
+            fi
+          done
+          exit $failed

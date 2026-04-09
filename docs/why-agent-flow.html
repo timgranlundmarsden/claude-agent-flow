@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why Agent Flow — Claude Agent Flow</title>
+  <meta name="description" content="Why use Agent Flow? From solo coding to orchestrated AI teams — how multi-agent pipelines improve code quality.">
+  <meta property="og:title" content="Why Agent Flow — Claude Agent Flow">
+  <meta property="og:description" content="Why use Agent Flow? From solo coding to orchestrated AI teams — how multi-agent pipelines improve code quality.">
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/why-agent-flow.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Agent Flow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Why Agent Flow — Claude Agent Flow">
+  <meta name="twitter:description" content="Why use Agent Flow? From solo coding to orchestrated AI teams — how multi-agent pipelines improve code quality.">
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/why-agent-flow.html">
+  <noscript>
+    <style>
+      .section-block { opacity: 1 !important; transform: none !important; }
+      .pillars       { opacity: 1 !important; transform: none !important; }
+    </style>
+  </noscript>
+  <style>
+    /* ── CSS TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+    .page { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav { position: sticky; top: 0; background: rgba(251,251,253,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); z-index: 100; }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a { font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -.01em; white-space: nowrap; }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link { color: var(--text-secondary); display: flex; align-items: center; opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none; }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 14px; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle { color: var(--text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 140px; padding: 6px; opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity 0.2s, transform 0.2s, visibility 0.2s; z-index: 200; }
+    .nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+    .nav-dropdown-menu a { display: block; padding: 8px 12px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 13px; transition: background 0.15s; }
+    .nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+    .nav-toggle-cb { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    .burger-icon { display: none; cursor: pointer; width: 44px; height: 44px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); flex-shrink: 0; margin-left: auto; }
+    .burger-bar, .burger-bar::before, .burger-bar::after { display: block; width: 20px; height: 2px; background: var(--text); border-radius: 1px; transition: transform 0.3s ease, opacity 0.3s ease; }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top:  6px; }
+    .nav-toggle-cb:checked ~ header .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ header .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ header .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; cursor: pointer; }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer { position: fixed; top: 0; right: 0; width: min(260px, 75vw); height: 100%; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000; transform: translateX(100%); transition: transform 0.3s ease; display: flex; flex-direction: column; padding: 72px 20px 24px; overflow-y: auto; gap: 4px; }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: 14px; color: var(--text); text-decoration: none; border-radius: var(--radius-sm); transition: background 0.15s; }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text-secondary); cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s; }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    .drawer-reference-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); padding: 12px 14px 4px; }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover { color: var(--blue); }
+    @media (max-width: 768px) { .nav-links, .nav-dropdown { display: none !important; } .burger-icon { display: flex !important; } }
+    @media (min-width: 768.01px) { .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; } }
+
+    /* ── HERO ─────────────────────────────────────────────────── */
+    .detail-hero { padding: 64px 0 24px; text-align: center; animation: fadeUp 0.6s ease-out both; }
+    .detail-hero .eyebrow { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 18px; }
+    .detail-hero h1 { font-size: clamp(44px, 8vw, 72px); font-weight: 700; letter-spacing: -.02em; color: var(--text); margin-bottom: 20px; line-height: 1.05; }
+    .detail-hero .subtitle { font-size: 18px; color: var(--text-secondary); max-width: 680px; margin: 0 auto; font-weight: 400; letter-spacing: -.01em; line-height: 1.55; font-style: italic; }
+
+    /* ── SECTION BLOCKS ──────────────────────────────────────── */
+    .section-block { margin-top: 72px; opacity: 0; transform: translateY(16px); transition: opacity 0.45s ease, transform 0.45s ease; }
+    .section-block.visible { opacity: 1; transform: none; }
+    .section-heading { font-size: 13px; font-family: var(--mono); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 12px; }
+    .section-title { font-size: clamp(24px, 3vw, 32px); font-weight: 700; letter-spacing: -.02em; color: var(--text); margin-bottom: 16px; line-height: 1.15; }
+    .section-lead { font-size: 16px; color: var(--text-secondary); max-width: 720px; line-height: 1.6; margin-bottom: 40px; }
+
+    /* ── DUAL-PILLAR PANEL ───────────────────────────────────── */
+    .pillars {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 2px; background: var(--border);
+      border-radius: var(--radius-lg); overflow: hidden;
+      margin: 8px 0 0;
+      opacity: 0; transform: translateY(16px);
+      transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
+    }
+    .pillars.visible { opacity: 1; transform: none; }
+    .pillar { background: var(--surface); padding: 44px 40px; position: relative; overflow: hidden; }
+    .pillar-num { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 20px; }
+    .pillar-01 .pillar-num { color: var(--opus); }
+    .pillar-02 .pillar-num { color: var(--blue); }
+    .pillar h2 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin-bottom: 16px; }
+    .pillar-body { font-size: 15px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 28px; }
+    .pillar-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ptag { font-family: var(--mono); font-size: 11px; padding: 5px 12px; border-radius: 20px; }
+    .pillar-01 .ptag { background: rgba(124,58,237,.08); color: var(--opus); border: 1px solid rgba(124,58,237,.2); }
+    .pillar-02 .ptag { background: rgba(0,113,227,.08); color: var(--blue); border: 1px solid rgba(0,113,227,.2); }
+    .pillar-bg-num { position: absolute; right: 24px; bottom: 16px; font-size: 120px; font-weight: 800; line-height: 1; font-family: var(--mono); opacity: .04; user-select: none; pointer-events: none; letter-spacing: -.05em; }
+
+    /* ── PHILOSOPHY STRIPE DIVIDERS ──────────────────────────── */
+    .phil-stripe { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+    .phil-stripe-bar { width: 4px; height: 32px; border-radius: 4px; flex-shrink: 0; }
+    .phil-stripe-bar.opus  { background: var(--opus); }
+    .phil-stripe-bar.blue  { background: var(--blue); }
+    .phil-stripe-bar.fail  { background: var(--fail); }
+    .phil-stripe-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+    .phil-stripe-label.opus  { color: var(--opus); }
+    .phil-stripe-label.blue  { color: var(--blue); }
+    .phil-stripe-label.fail  { color: var(--fail); }
+
+    /* ── FAILURE CARDS ─────────────────────────────────────── */
+    .failure-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .failure-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 28px 24px; box-shadow: var(--shadow); }
+    .failure-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 16px; }
+    .icon-red    { background: rgba(255,59,48,.1); }
+    .icon-orange { background: rgba(255,149,0,.1); }
+    .icon-purple { background: rgba(124,58,237,.1); }
+    .icon-blue   { background: rgba(0,113,227,.1); }
+    .icon-green  { background: rgba(40,167,69,.1); }
+    .icon-gray   { background: rgba(110,110,115,.1); }
+    .failure-card h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 10px; letter-spacing: -.01em; }
+    .failure-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── CONTRAST ROWS ─────────────────────────────────────── */
+    .contrast-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+    .contrast-row { display: grid; grid-template-columns: 200px 1fr; gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow); }
+    .contrast-label { padding: 20px 24px; background: rgba(124,58,237,.04); border-right: 1px solid var(--border); font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--opus); display: flex; align-items: center; line-height: 1.4; }
+    .contrast-body { padding: 20px 24px; font-size: 14px; color: var(--text-secondary); line-height: 1.6; display: flex; align-items: center; }
+
+    /* ── LOOP DIAGRAM ──────────────────────────────────────── */
+    .loop-diagram { display: flex; align-items: center; gap: 0; overflow-x: auto; margin-bottom: 12px; }
+    .loop-node { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 18px; text-align: center; flex: 1; min-width: 0; box-shadow: var(--shadow); }
+    .loop-node.critic-node { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.03); }
+    .loop-node.pass-node   { border-color: rgba(40,167,69,.4);  background: rgba(40,167,69,.03); }
+    .loop-node .nl { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary); margin-bottom: 4px; }
+    .loop-node h3  { font-size: 13px; font-weight: 700; color: var(--text); }
+    .loop-arrow    { color: var(--border); font-size: 18px; padding: 0 8px; flex-shrink: 0; font-family: var(--mono); }
+    .loop-caption  { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); margin-bottom: 40px; }
+
+    /* ── ROSTER GRID ───────────────────────────────────────── */
+    .roster-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .roster-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; box-shadow: var(--shadow); }
+    .model-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .dot-opus   { background: var(--opus); }
+    .dot-sonnet { background: var(--blue); }
+    .dot-haiku  { background: var(--haiku); }
+    .roster-text { flex: 1; min-width: 0; }
+    .roster-name { font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--mono); margin-bottom: 3px; }
+    .roster-role { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+    .roster-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .roster-badge { font-size: 11px; font-family: var(--mono); padding: 2px 8px; border-radius: 10px; background: rgba(0,113,227,.06); color: var(--blue); border: 1px solid rgba(0,113,227,.15); }
+    .roster-legend { display: flex; gap: 24px; margin-top: 20px; flex-wrap: wrap; }
+    .roster-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); font-family: var(--mono); }
+
+    /* ── COMPARISON GRID ──────────────────────────────────────── */
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .compare-card { background: var(--surface); border-radius: var(--radius-md); padding: 32px 28px; box-shadow: var(--shadow); }
+    .compare-card.compare-fail { border: 1.5px solid var(--fail); }
+    .compare-card.compare-pass { border: 1.5px solid var(--blue); }
+    .compare-card > h3 { font-size: 17px; font-weight: 700; letter-spacing: -.01em; margin-bottom: 24px; text-align: center; }
+    .compare-fail > h3 { color: var(--fail); }
+    .compare-pass > h3 { color: var(--blue); }
+    .compare-section { margin-bottom: 20px; }
+    .compare-section:last-child { margin-bottom: 0; }
+    .compare-section h4 { font-size: 11px; font-family: var(--mono); font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--text-secondary); margin-bottom: 10px; }
+    .compare-section ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+    .compare-section li { font-size: 14px; color: var(--text-secondary); line-height: 1.55; padding-left: 16px; position: relative; }
+    .compare-section li::before { content: '–'; position: absolute; left: 0; font-weight: 600; }
+    .compare-fail .compare-section li::before { color: var(--fail); }
+    .compare-pass .compare-section li::before { color: var(--blue); }
+    @media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } }
+
+    /* ── PROSE ─────────────────────────────────────────────── */
+    .section-prose { font-size: 16px; line-height: 1.7; color: var(--text-secondary); max-width: 760px; }
+    .section-prose p { margin-bottom: 24px; }
+    .section-prose p:last-child { margin-bottom: 0; }
+    .section-prose strong { font-weight: 600; color: var(--text); }
+    .section-prose em { font-style: italic; }
+
+    /* ── LINK CARDS ────────────────────────────────────────── */
+    .link-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .link-card { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 28px 24px; box-shadow: var(--shadow); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+    .link-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1), 0 0 0 1px rgba(0,113,227,.2); border-color: rgba(0,113,227,.3); }
+    .link-card-cmd { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--blue); margin-bottom: 10px; }
+    .link-card h3 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .link-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.55; }
+    .link-card-arrow { margin-top: 16px; font-size: 13px; color: var(--blue); font-family: var(--mono); font-weight: 600; }
+
+    /* ── FOOTER ─────────────────────────────────────────────── */
+    footer { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 48px 0 56px; margin-top: 72px; border-top: 1px solid var(--border); }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ── ANIMATIONS ─────────────────────────────────────────── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .section-block { opacity: 1 !important; transform: none !important; }
+      .pillars { opacity: 1 !important; transform: none !important; }
+    }
+
+    /* ── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .pillars { grid-template-columns: 1fr; }
+      .pillar { padding: 32px 28px; }
+      .detail-hero { padding: 48px 0 32px; }
+      .failure-cards { grid-template-columns: repeat(2, 1fr); }
+      .roster-grid { grid-template-columns: repeat(2, 1fr); }
+      .link-cards { grid-template-columns: repeat(2, 1fr); }
+      .contrast-row { grid-template-columns: 1fr; }
+      .contrast-label { border-right: none; border-bottom: 1px solid var(--border); }
+      .section-block { margin-top: 52px; }
+      .loop-diagram { flex-direction: column; align-items: stretch; gap: 0; }
+      .loop-node { flex: none; }
+      .loop-arrow { transform: rotate(90deg); text-align: center; padding: 4px 0; }
+    }
+    @media (max-width: 480px) {
+      .failure-cards { grid-template-columns: 1fr; }
+      .roster-grid { grid-template-columns: 1fr; }
+      .link-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html" class="nav-active" aria-current="page">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html" class="nav-active" aria-current="page">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main class="page">
+
+    <!-- ── HERO ─────────────────────────────────────────────────── -->
+    <header class="detail-hero" aria-labelledby="heading-why">
+      <p class="eyebrow">The Philosophy</p>
+      <h1 id="heading-why">Why Agent Flow</h1>
+      <p class="subtitle">Specialisation and adversarial review are not optimisations on top of a working system — they are the conditions that make a working system possible.</p>
+    </header>
+
+    <!-- ── TWO PILLARS ──────────────────────────────────────────── -->
+    <div class="pillars" role="region" aria-label="Two core philosophies">
+      <div class="pillar pillar-01">
+        <p class="pillar-num">Philosophy 01</p>
+        <h2>Quality emerges from adversarial loops</h2>
+        <p class="pillar-body">A dedicated adversary that actively tries to break the code finds what a reviewer never sees. The critic's job is not to approve — it is to fail the work. The loop runs unattended until nothing breaks, compressing days of real-team code review into minutes.</p>
+        <div class="pillar-tags">
+          <span class="ptag">critic → builder → critic</span>
+          <span class="ptag">unattended</span>
+          <span class="ptag">no human needed</span>
+        </div>
+        <span class="pillar-bg-num" aria-hidden="true">01</span>
+      </div>
+      <div class="pillar pillar-02">
+        <p class="pillar-num">Philosophy 02</p>
+        <h2>Specialisation beats generalism</h2>
+        <p class="pillar-body">A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Twelve agents each own exactly one part of the problem — clean context, no role confusion.</p>
+        <div class="pillar-tags">
+          <span class="ptag">12 specialists</span>
+          <span class="ptag">clean context</span>
+          <span class="ptag">role clarity</span>
+        </div>
+        <span class="pillar-bg-num" aria-hidden="true">02</span>
+      </div>
+    </div>
+
+    <!-- ── THE ADVERSARIAL LOOP ─────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="loop-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar opus" aria-hidden="true"></div>
+        <span class="phil-stripe-label opus">Philosophy 01 · The Adversarial Loop</span>
+      </div>
+      <p class="section-heading">How It Works</p>
+      <h2 class="section-title" id="loop-title">The Critic–Builder Feedback Cycle</h2>
+      <p class="section-lead">The critic is not a reviewer — it actively constructs failure scenarios, adversarial inputs, and edge cases the builder didn't consider. When it finds something, it returns a specific ISSUES list. The builder fixes only those items. Then the critic runs again from scratch.</p>
+      <div class="loop-diagram" role="img" aria-label="Builder implements, Critic tries to break it, Builder fixes issues, Critic reviews again, PASS">
+        <div class="loop-node">
+          <p class="nl">Step 1</p>
+          <h3>Builder<br>Implements</h3>
+        </div>
+        <span class="loop-arrow" aria-hidden="true">→</span>
+        <div class="loop-node critic-node">
+          <p class="nl">Step 2</p>
+          <h3>Critic<br>Tries to break it</h3>
+        </div>
+        <span class="loop-arrow" aria-hidden="true">→</span>
+        <div class="loop-node">
+          <p class="nl">Step 3</p>
+          <h3>Builder<br>Fixes issues</h3>
+        </div>
+        <span class="loop-arrow" aria-hidden="true">→</span>
+        <div class="loop-node critic-node">
+          <p class="nl">Step 4</p>
+          <h3>Critic<br>Reviews again</h3>
+        </div>
+        <span class="loop-arrow" aria-hidden="true">→</span>
+        <div class="loop-node pass-node">
+          <p class="nl">Result</p>
+          <h3>PASS<br>Done</h3>
+        </div>
+      </div>
+      <p class="loop-caption">Repeats up to N iterations · No human intervention required</p>
+    </section>
+
+    <!-- ── WHY AN ADVERSARY ─────────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="adversary-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar opus" aria-hidden="true"></div>
+        <span class="phil-stripe-label opus">Philosophy 01 · Why It's Different</span>
+      </div>
+      <h2 class="section-title" id="adversary-title">Why an Adversary?</h2>
+      <div class="section-prose">
+        <p>Every builder carries a constructive bias. It is not a flaw — it is what makes building possible. When you narrow your focus to a specific diff, you inevitably optimise toward success. You read code in light of your intent. You test the paths you thought to test. The gaps you leave are not the gaps you see.</p>
+        <p>A reviewer faces a subtler version of the same problem. They arrive after the fact, reconstructing intent from output. Good reviewers compensate with experience and pattern recognition, but they are still reading <em>with</em>, not <em>against</em>. The mental posture is evaluative, not adversarial.</p>
+        <p>An adversary arrives with a different mandate: not to assess quality, but to find failure. That shift produces a different kind of attention — looking for the edge case just outside the spec, the implicit assumption that holds until it doesn't, the interaction between two things that each look correct in isolation. <strong>Fresh eyes on a narrowed diff find what builders miss precisely because they bring no investment in the outcome.</strong></p>
+      </div>
+    </section>
+
+    <!-- ── SINGLE PASS VS ADVERSARIAL LOOP ────────────────────────── -->
+    <section class="section-block" aria-labelledby="compare-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar opus" aria-hidden="true"></div>
+        <span class="phil-stripe-label opus">Philosophy 01 · How It Compares</span>
+      </div>
+      <h2 class="section-title" id="compare-title">Single Pass vs Adversarial Loop</h2>
+      <p class="section-lead">The difference isn't speed — it's mandate. A reviewer assesses quality. An adversary hunts for failure. That shift in posture produces a different class of result.</p>
+      <div class="compare-grid">
+        <div class="compare-card compare-fail">
+          <h3>Single Pass Review</h3>
+          <div class="compare-section">
+            <h4>Catches</h4>
+            <ul>
+              <li>Obvious logic errors and style inconsistencies</li>
+              <li>Missing null checks on the happy path</li>
+              <li>Tests that clearly don't cover changed code</li>
+              <li>Straightforward typos</li>
+            </ul>
+          </div>
+          <div class="compare-section">
+            <h4>Misses</h4>
+            <ul>
+              <li>Race conditions the builder never modelled</li>
+              <li>Edge cases hidden behind surface-level issues</li>
+              <li>Contract violations between components that each look correct alone</li>
+              <li>Side effects that break downstream consumers</li>
+              <li>Security paths in uncommon-but-valid states</li>
+            </ul>
+          </div>
+        </div>
+        <div class="compare-card compare-pass">
+          <h3>Adversarial Loop</h3>
+          <div class="compare-section">
+            <h4>Also catches</h4>
+            <ul>
+              <li>Everything above — with higher confidence</li>
+              <li>Race conditions constructed from adversarial inputs</li>
+              <li>Edge cases outside the spec the builder didn't consider</li>
+              <li>Contract violations where each side looks correct in isolation</li>
+              <li>Implicit assumptions about ordering, timing, and state</li>
+              <li>Errors introduced by the fix (critic re-runs from scratch each time)</li>
+            </ul>
+          </div>
+          <div class="compare-section">
+            <h4>Unlike human review</h4>
+            <ul>
+              <li>No calendar dependency or reviewer fatigue</li>
+              <li>No social pressure to approve a colleague's work</li>
+              <li>Runs the moment the builder finishes</li>
+            </ul>
+          </div>
+          <div class="compare-section">
+            <h4>Unlike automated tests</h4>
+            <ul>
+              <li>Tests verify what you thought to test</li>
+              <li>The critic constructs what you didn't think of</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── WHAT THE CRITIC CATCHES ──────────────────────────────── -->
+    <section class="section-block" aria-labelledby="critic-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar opus" aria-hidden="true"></div>
+        <span class="phil-stripe-label opus">Philosophy 01 · Evidence</span>
+      </div>
+      <h2 class="section-title" id="critic-title">What the Critic Catches</h2>
+      <p class="section-lead">Real failure scenarios from build sessions — each one would have reached production without the adversarial loop.</p>
+      <div class="failure-cards">
+        <div class="failure-card">
+          <div class="failure-card-icon icon-purple" aria-hidden="true">⚡</div>
+          <h3>Race condition</h3>
+          <p>Two auth tokens were valid for overlapping windows; the critic constructed a concurrent session that could read stale permissions. Builder had tested single-session only.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-orange" aria-hidden="true">🔇</div>
+          <h3>Silent failure path</h3>
+          <p>An external API failure was caught and logged, but the calling function returned a success response. The critic traced the return value through 3 call stack frames to find the silent success.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-blue" aria-hidden="true">🔍</div>
+          <h3>Fresh-eyes principle</h3>
+          <p>A second critic pass on patched code found that the fix for a null-check introduced a new off-by-one in the boundary condition. The first pass had marked it clean.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-gray" aria-hidden="true">📱</div>
+          <h3>Mobile layout broken</h3>
+          <p>The desktop layout looked correct, but the critic loaded the page at 375px and found the hero grid overflowed horizontally. The builder had only tested at 1280px.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-red" aria-hidden="true">🔐</div>
+          <h3>Insecure code</h3>
+          <p>User input was interpolated directly into a shell command without sanitisation. The critic flagged the injection vector and returned FAIL with a recommended fix before the code ever ran.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-green" aria-hidden="true">📋</div>
+          <h3>Diverged from the plan</h3>
+          <p>The builder implemented a caching layer that wasn't in the spec. The critic compared implementation against the plan file and flagged the scope creep before it was merged.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SINGLE-AGENT TRAP ────────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="trap-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar blue" aria-hidden="true"></div>
+        <span class="phil-stripe-label blue">Philosophy 02 · The Problem</span>
+      </div>
+      <p class="section-heading">The Single-Agent Trap</p>
+      <h2 class="section-title" id="trap-title">What Goes Wrong When One Agent Does Everything</h2>
+      <p class="section-lead">These are not hypothetical failure modes — they are the structural problems that drove the team's design.</p>
+      <div class="failure-cards">
+        <div class="failure-card">
+          <div class="failure-card-icon icon-red" aria-hidden="true">⚡</div>
+          <h3>Context Pollution</h3>
+          <p>An agent that has seen schema, frontend, tests, and business requirements all in one session reasons poorly about any of them. Each new piece of context crowds out earlier reasoning. The signal-to-noise ratio drops with every tool call.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-orange" aria-hidden="true">🎭</div>
+          <h3>Role Confusion</h3>
+          <p>A general-purpose agent asked to both design and implement makes compromises — cutting corners on design to ship faster, or over-engineering implementation to prove capability. Specialisation removes this tension completely.</p>
+        </div>
+        <div class="failure-card">
+          <div class="failure-card-icon icon-purple" aria-hidden="true">📉</div>
+          <h3>Quality Cliff</h3>
+          <p>Single-session quality degrades predictably as tasks grow. The first 200 lines are good. By 500 lines, the agent is fighting its own earlier decisions. By 1000 lines, it contradicts the architecture it designed 20 minutes ago.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── AGENT ROSTER ─────────────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="roster-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar blue" aria-hidden="true"></div>
+        <span class="phil-stripe-label blue">Philosophy 02 · The Solution</span>
+      </div>
+      <h2 class="section-title" id="roster-title">12 Agents, Each With One Job</h2>
+      <p class="section-lead">Every agent has a single domain, a single model tier, and a single place in the sequence. No agent makes decisions outside its scope.</p>
+      <div class="roster-grid">
+        <div class="roster-item">
+          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">orchestrator</div>
+            <div class="roster-role">Routes and sequences, never writes code</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">architect</div>
+            <div class="roster-role">Design decisions, pre-implementation</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">ideator</div>
+            <div class="roster-role">Lateral thinking, output to human only</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">critic</div>
+            <div class="roster-role">Adversarial review, tries to break the code</div>
+            <div class="roster-badges"><span class="roster-badge">🌐 Playwright</span></div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">reviewer</div>
+            <div class="roster-role">Final quality pass — security, correctness, perf</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">frontend</div>
+            <div class="roster-role">UI, React, TypeScript, Tailwind</div>
+            <div class="roster-badges"><span class="roster-badge">🌐 Playwright</span></div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">backend</div>
+            <div class="roster-role">API, DB queries, Auth, Supabase</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">researcher</div>
+            <div class="roster-role">Live docs lookup, library comparison</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">explorer</div>
+            <div class="roster-role">Read-only codebase navigator</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">tester</div>
+            <div class="roster-role">Tests only — never marks done if tests are red</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-haiku" role="img" aria-label="Haiku tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">author</div>
+            <div class="roster-role">Docs and CHANGELOG</div>
+          </div>
+        </div>
+        <div class="roster-item">
+          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
+          <div class="roster-text">
+            <div class="roster-name">storage</div>
+            <div class="roster-role">DB schema, RLS policies, cloud storage</div>
+          </div>
+        </div>
+      </div>
+      <div class="roster-legend">
+        <div class="roster-legend-item"><span class="model-dot dot-opus"></span> Opus 4</div>
+        <div class="roster-legend-item"><span class="model-dot dot-sonnet"></span> Sonnet 4.5</div>
+        <div class="roster-legend-item"><span class="model-dot dot-haiku"></span> Haiku 4.5</div>
+      </div>
+    </section>
+
+    <!-- ── SEE IT IN PRACTICE ───────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="practice-title">
+      <h2 class="section-title" id="practice-title">See It In Practice</h2>
+      <p class="section-lead">Each pipeline has a dedicated page explaining the agents involved, the sequence, and the design decisions behind it.</p>
+      <div class="link-cards">
+        <a href="plan-pipeline.html" class="link-card">
+          <div class="link-card-cmd">/plan</div>
+          <h3>Plan Pipeline</h3>
+          <p>Brainstorm → architect → researcher. From idea to implementation brief.</p>
+          <div class="link-card-arrow">View pipeline →</div>
+        </a>
+        <a href="build-pipeline.html" class="link-card">
+          <div class="link-card-cmd">/build</div>
+          <h3>Build Pipeline</h3>
+          <p>Explorer → builders → adversarial critic loop → reviewer → author.</p>
+          <div class="link-card-arrow">View pipeline →</div>
+        </a>
+        <a href="review-pipeline.html" class="link-card">
+          <div class="link-card-cmd">/review</div>
+          <h3>Review Pipeline</h3>
+          <p>Critic against existing code. Structured findings: BLOCKER, WARNING, SUGGESTION.</p>
+          <div class="link-card-arrow">View pipeline →</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="page">
+      Apache 2.0 · Built with Claude Agent Flow · <a href="index.html">Home</a>
+    </div>
+  </footer>
+
+  <script>
+    const revealEls = Array.from(document.querySelectorAll('.section-block, .pillars'));
+    if (!window.IntersectionObserver) {
+      revealEls.forEach(el => el.classList.add('visible'));
+    } else {
+      const io = new IntersectionObserver(
+        (entries) => entries.forEach(e => {
+          if (e.isIntersecting) {
+            const idx = revealEls.indexOf(e.target);
+            e.target.style.transitionDelay = (idx % 4 * 60) + 'ms';
+            e.target.classList.add('visible');
+            io.unobserve(e.target);
+          }
+        }),
+        { threshold: 0.08 }
+      );
+      revealEls.forEach(el => io.observe(el));
+    }
+  </script>
+</body>
+</html>

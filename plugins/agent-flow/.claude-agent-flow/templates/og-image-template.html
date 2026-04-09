@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1200">
+  <title>Claude Agent Flow — OG Image</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --cyan:           #06b6d4;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+    }
+
+    html, body {
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0,113,227,.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(124,58,237,.015) 0%, transparent 50%);
+      font-family: var(--font);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      -webkit-font-smoothing: antialiased;
+      gap: 0;
+    }
+
+    /* ─── EYEBROW ──────────────────────────────────────────── */
+    .eyebrow {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    /* ─── HEADLINE ─────────────────────────────────────────── */
+    .headline {
+      font-size: 76px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+
+    .headline .blue {
+      background: linear-gradient(135deg, #0071e3 0%, #40a0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ─── SUBTITLE ─────────────────────────────────────────── */
+    .subtitle {
+      font-size: 21px;
+      font-weight: 400;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin-bottom: 36px;
+    }
+
+    /* ─── PIPELINE ─────────────────────────────────────────── */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .agent {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .agent__dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .agent--blue .agent__dot { background: var(--blue); }
+    .agent--blue { color: var(--blue); }
+
+    .agent--cyan .agent__dot { background: var(--cyan); }
+    .agent--cyan { color: var(--cyan); }
+
+    .agent--purple .agent__dot { background: var(--opus); }
+    .agent--purple { color: var(--opus); }
+
+    .agent--green .agent__dot { background: var(--haiku); }
+    .agent--green { color: var(--haiku); }
+
+    .arrow {
+      color: var(--border);
+      font-size: 16px;
+      font-weight: 300;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="eyebrow">Claude Agent Flow</div>
+
+  <h1 class="headline">
+    Plan. <span class="blue">Build.</span> Review.
+  </h1>
+
+  <p class="subtitle">
+    Agentic Workflow System within Claude Code - multi-agent
+    pipeline that takes ideas from plan to production.
+  </p>
+
+  <div class="pipeline">
+    <div class="agent agent--blue"><span class="agent__dot"></span>Orchestrator</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--cyan"><span class="agent__dot"></span>Explorer</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--purple"><span class="agent__dot"></span>Ideator</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--purple"><span class="agent__dot"></span>Architect</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--blue"><span class="agent__dot"></span>Builder</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--green"><span class="agent__dot"></span>Critic Pass</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--blue"><span class="agent__dot"></span>Tester</div>
+    <span class="arrow">→</span>
+    <div class="agent agent--blue"><span class="agent__dot"></span>Reviewer</div>
+  </div>
+
+</body>
+</html>
