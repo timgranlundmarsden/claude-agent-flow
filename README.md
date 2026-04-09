@@ -1,12 +1,14 @@
 # Claude Agent Flow
 
-A Claude Code plugin that brings a multi-agent development pipeline to your repository — adversarial review loops, 12 specialist agents, 13 slash commands, and 18 skills.
+A Claude Code plugin that brings a multi-agent development pipeline to your repository — adversarial review loops, 12 specialist agents, 14 slash commands, and 18 skills.
 
-**[Full documentation →](https://timgranlundmarsden.github.io/claude-agent-flow/)**
+**[Full documentation →](https://timgranlundmarsden.github.io/claude-agent-flow/)** · **[Jump to installation ↓](#installation)**
 
 ![claude-agent-code.jpg](docs/img/claude-agent-code.jpg)
 
-## Why use this framework/plugin and why did I build it 
+---
+
+## Why use this framework/plugin and why did I build it
 
 I started this project because if I am honest I was a bit disappointed with the current crop of AI tooling. As amazing as their results often are, when the model says "I am done", it was always far from done. Maybe you asked for a mobile friendly web page and it turned out that the result wasnt in fact mobile friendly. Or maybe you asked it to fix some code and then on running the tests, you saw that it had made introduced another bug. Either way I was spending too much time hand holding and guiding the models.
 
@@ -15,6 +17,122 @@ I am a big Claude Code user and it supports so many great things so I thought wh
 But the big part was once it thought it was done, it would need to get the approval of multiple separate AI agents that would be very thorough and check it's work. "Works on mobile?", then prove it with screenshots! "Code looks good", then lets run all the tests. If anything breaks, send it back to the agent that did the work for correction. Only when the entire flow if complete and every agent is satisfied, is the job "Ready for Review"
 
 Today it's 12 specialised agents, a skill library, and a full CI/CD integration — built entirely by running itself. What began as a simple automation became a full on factory line capable of solving multiple tickets at once. When you couple it with Claude Code for Web you can literally have AI build your ideas whilst you are out and about. It gets rather addictive :-)
+
+---
+
+## The Philosophy
+
+Two ideas drive everything in this project:
+
+**Quality emerges from adversarial loops.** A dedicated adversary that actively tries to break the code finds what a reviewer never sees. The critic's job is not to approve — it is to fail the work. The loop runs unattended until nothing breaks, compressing days of real-team code review into minutes. This is how you catch race conditions, silent failures, and injection vectors that slip past conventional review.
+
+**Specialisation beats generalism.** A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Twelve agents each own exactly one part of the problem — clean context, no role confusion. The frontend agent doesn't second-guess the API design; the critic doesn't have to stomach the implementation weight.
+
+The full reasoning behind these choices is on the [Why Agent Flow](https://timgranlundmarsden.github.io/claude-agent-flow/why-agent-flow.html) page.
+
+---
+
+## How It Works
+
+You describe what you want. The pipeline handles the rest.
+
+**`/plan`** — Socratic conversation that asks questions, explores approaches, produces a structured brief with acceptance criteria saved as a plan file in your repo.
+
+**`/build`** — Takes a plan file and runs the full agent sequence: explorer maps codebase, architect designs approach, builders implement, then the adversarial critic loop kicks in (critic tries to break it, builder fixes, repeat until PASS), then tester runs full test suite, reviewer does final pass, author updates docs. Runs unattended.
+
+**`/review`** — For code you wrote yourself without using /build. Runs the adversarial critic loop to stress-test your diff before merging.
+
+```
+┌─────────────────────────────────┐
+│           Explorer              │
+│     Maps the codebase           │
+└────────────────┬────────────────┘
+                 ▼
+┌─────────────────────────────────┐
+│           Architect             │
+│    Designs the approach         │
+└────────────────┬────────────────┘
+                 ▼
+┌─────────────────────────────────┐
+│           Builders              │
+│   Frontend / Backend / Storage  │
+└────────────────┬────────────────┘
+                 ▼
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+  Critic ←→ Builders (loop)
+  FAIL? Fix and resubmit.
+  PASS? Move on.
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+                 ▼
+┌─────────────────────────────────┐
+│           Tester                │
+│    Runs full test suite         │
+└────────────────┬────────────────┘
+                 ▼
+┌─────────────────────────────────┐
+│           Reviewer              │
+│   Structured code review        │
+└────────────────┬────────────────┘
+                 ▼
+┌─────────────────────────────────┐
+│           Author                │
+│    Updates docs & changelog     │
+└─────────────────────────────────┘
+```
+
+The whole thing runs unattended. You come back to a branch that's been built, challenged, fixed, tested, reviewed, and documented.
+
+See the full [/build pipeline reference](https://timgranlundmarsden.github.io/claude-agent-flow/build-pipeline.html) for details on each phase.
+
+---
+
+## What the Critic Catches
+
+These are real findings from build sessions — each would have reached production without the adversarial loop:
+
+- **Race condition** — Two auth tokens valid for overlapping windows; the critic constructed a concurrent session that could read stale permissions. The builder had only tested single-session.
+
+- **Silent failure path** — An external API failure was caught and logged, but the calling function returned a success response. The critic traced the return value through three call stack frames to find the silent success.
+
+- **Mobile layout broken** — Desktop looked correct, but the critic loaded the page at 375px and found the hero grid overflowed horizontally. The builder had only tested at 1280px.
+
+- **Insecure code** — User input interpolated directly into a shell command without sanitisation. The critic flagged the injection vector and returned FAIL before the code ever ran.
+
+- **Diverged from the plan** — The builder implemented a caching layer that wasn't in the spec. The critic compared implementation against the plan file and flagged the scope creep before it was merged.
+
+---
+
+## Quick Start
+
+After installing, try this in your project:
+
+**Plan something:**
+
+```
+/plan I want to add a user profile page with avatar upload
+```
+
+The pipeline will ask you questions, explore approaches, and produce a structured brief with acceptance criteria — saved as a plan file in your repo.
+
+**Build it:**
+
+```
+/build @plans/2026-04-09-1430-user-profile-page.md
+```
+
+Sit back. The explorer maps your codebase, the architect designs the approach, the builders implement it, the critic tries to break it, the tester runs the full suite, and the reviewer signs off. You come back to a branch ready for review.
+
+**Review your own work:**
+
+```
+/review
+```
+
+If you've made changes yourself without using `/build`, run `/review` to get the adversarial critic loop to stress-test your diff before merging.
+
+See the [Getting Started guide](https://timgranlundmarsden.github.io/claude-agent-flow/getting-started.html) for detailed walkthroughs.
+
+---
 
 ## Installation
 
@@ -40,7 +158,7 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 ### Scopes
 
 | Scope | What's included | Best for |
-|-------|----------------|----------|
+|-------|-----------------|----------|
 | **plugin** | CLAUDE.md patch, settings.json, .gitattributes, .mcp.json, Backlog.md init | Teams managing their own CI/CD |
 | **plugin+github** | Everything in plugin, plus automated AI code review on PRs and Telegram backlog notifications | GitHub Actions users |
 | **sandbox** | Everything fully vendored into your repo — agents, commands, and skills live alongside your code with no external plugin dependency at runtime, so the full pipeline works inside sandboxed environments including Claude Code web (claude.ai/code) | Claude Code web or air-gapped environments |
@@ -50,6 +168,8 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
 - Git repository initialised in your project
 - Node.js 18+ (for MCP servers and Backlog.md)
+
+---
 
 ## What You Get
 
@@ -70,7 +190,7 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | reviewer | Final review pass before completion |
 | author | Documentation and changelog authoring |
 
-### 13 Commands
+### 14 Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -87,17 +207,21 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | `/token-analyser` | Analyse token usage and costs |
 | `/sync-plugin-skills` | Sync skills from vendor plugins |
 | `/plugin-repo-sync` | Sync to public plugin repository |
+| `/diagnostic` | Report agent-flow installation health |
 
 ### 18 Skills
 
 `agent-development`, `ascii-box-tables`, `backlog-md`, `backlog-tpm`, `brainstorming`, `command-development`, `external-code-review`, `frontend-design`, `hook-development`, `mcp-integration`, `playwright-cli`, `playwright-cli-helpers`, `plugin-settings`, `plugin-structure`, `skill-development`, `sync-plugin-skills`, `token-analyser`, `ways-of-working`
 
-## Modes
+---
 
-- **Lite mode** (default): explorer → builder → reviewer. For everyday tasks.
-- **Full pipeline** (`/build <brief>`): Full agent sequence with adversarial critic loop. For production features.
+## See It In Action
 
-Describe what you want naturally — the pipeline routes automatically.
+The showcase has recorded build sessions you can replay step by step — bug fixes, feature builds, and SEO improvements all run through the full agent sequence. Watch real builds happen in real time, from `/plan` through final documentation.
+
+**[Browse the showcase →](https://timgranlundmarsden.github.io/claude-agent-flow/showcase.html)**
+
+---
 
 ## Configuration
 
@@ -105,6 +229,8 @@ After install, two files are available for customisation:
 
 - **`CLAUDE.md`** — project-level conventions. Add your project description and team rules below the managed sections.
 - **`.env`** — local environment variables (API keys, feature flags). Never committed.
+
+---
 
 ## License
 
