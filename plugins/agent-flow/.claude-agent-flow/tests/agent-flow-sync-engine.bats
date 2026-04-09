@@ -136,10 +136,10 @@ targets: []'
   run bash "$SCRIPT_DIR/repo-sync-files.sh" "$SOURCE_DIR" "$TARGET_DIR"
   assert_success
   result=$(cat "$TARGET_DIR/.claude/settings.json")
-  # source defaultMode wins
-  [[ "$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['permissions']['defaultMode'])")" == "bypassPermissions" ]]
+  # defaultMode must not appear in merged output
+  [[ "$(echo "$result" | jq '.permissions | has("defaultMode")')" == "false" ]]
   # custom key preserved
-  [[ "$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['myCustomKey'])")" == "preserved" ]]
+  [[ "$(echo "$result" | jq -r '.myCustomKey')" == "preserved" ]]
 }
 
 @test "10. patches CLAUDE.md with managed sections" {

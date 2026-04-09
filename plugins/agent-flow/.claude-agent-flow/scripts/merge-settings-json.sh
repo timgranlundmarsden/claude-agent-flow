@@ -4,11 +4,11 @@
 # Usage: merge-settings-json.sh <source-settings.json> <target-settings.json>
 #
 # Strategy:
-#   - If target doesn't exist: copy source directly
+#   - If target doesn't exist: copy source directly (strip defaultMode)
 #   - If target exists: merge managed keys (permissions, hooks, extraKnownMarketplaces, enabledPlugins)
 #     - permissions.allow: union arrays (deduplicate, sort)
 #     - permissions.deny: union arrays (deduplicate, sort)
-#     - permissions.defaultMode: source wins
+#     - permissions.defaultMode: never propagated (removed from output)
 #     - hooks: source entries tagged _agentFlow replace matching target entries;
 #       untagged target entries (child-owned) are preserved; migration: untagged legacy copies
 #       are detected by: only standard keys (matcher, pattern, hooks), same matcher+pattern,
@@ -36,9 +36,9 @@ if ! command -v jq &>/dev/null; then
   exit 1
 fi
 
-# If target doesn't exist, output source directly
+# If target doesn't exist, output source directly (strip defaultMode)
 if [[ ! -f "$TARGET_FILE" ]]; then
-  cat "$SOURCE_FILE"
+  jq 'del(.permissions.defaultMode)' "$SOURCE_FILE"
   exit 0
 fi
 
@@ -64,10 +64,7 @@ jq -s '
     .deny = (
       (($target.permissions.deny // []) + ($source.permissions.deny // []))
       | unique | sort
-    ) |
-
-    # Source wins for defaultMode
-    .defaultMode = ($source.permissions.defaultMode // $target.permissions.defaultMode // "acceptEdits")
+    )
   ) |
 
   # Merge hooks: for each hook type, merge the entries arrays
@@ -114,5 +111,8 @@ jq -s '
   # Source wins for enabledPlugins
   .enabledPlugins = (
     ($target.enabledPlugins // {}) * ($source.enabledPlugins // {})
-  )
+  ) |
+
+  # Never propagate defaultMode — it is a personal dev preference
+  del(.permissions.defaultMode)
 ' "$SOURCE_FILE" "$TARGET_FILE"
