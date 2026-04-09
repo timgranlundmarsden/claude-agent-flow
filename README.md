@@ -6,7 +6,7 @@ A Claude Code plugin that brings a multi-agent development pipeline to your repo
 
 ![claude-agent-code.jpg](docs/img/claude-agent-code.jpg)
 
-## Why use this framework/plugin and why did I build it
+## Why use this framework/plugin and why did I build it 
 
 I started this project because if I am honest I was a bit disappointed with the current crop of AI tooling. As amazing as their results often are, when the model says "I am done", it was always far from done. Maybe you asked for a mobile friendly web page and it turned out that the result wasnt in fact mobile friendly. Or maybe you asked it to fix some code and then on running the tests, you saw that it had made introduced another bug. Either way I was spending too much time hand holding and guiding the models.
 
