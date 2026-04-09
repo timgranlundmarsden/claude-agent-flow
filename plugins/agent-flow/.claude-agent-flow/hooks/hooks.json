@@ -2,8 +2,13 @@
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/.claude-agent-flow/scripts/session-start.sh"
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/.claude-agent-flow/scripts/session-start.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
