@@ -12,13 +12,13 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
-      - 'marketplace.json'
+      - '.claude-plugin/marketplace.json'
       - 'install.sh'
   push:
     branches: [main]
     paths:
       - 'plugins/**'
-      - 'marketplace.json'
+      - '.claude-plugin/marketplace.json'
       - 'install.sh'
 
 permissions:
@@ -60,7 +60,7 @@ jobs:
             "$PLUGIN_DIR/.claude-agent-flow/install-manifest.yml"
             "$PLUGIN_DIR/.claude-agent-flow/templates/CLAUDE.md.managed"
             "$PLUGIN_DIR/.claude-agent-flow/templates/.mcp.json"
-            "marketplace.json"
+            ".claude-plugin/marketplace.json"
             "install.sh"
             "README.md"
             "CHANGELOG.md"
@@ -110,9 +110,9 @@ jobs:
 
       - name: marketplace.json is valid
         run: |
-          jq empty marketplace.json
-          name=$(jq -r '.name // empty' marketplace.json)
-          plugins=$(jq -r '.plugins | length' marketplace.json)
+          jq empty ".claude-plugin/marketplace.json"
+          name=$(jq -r '.name // empty' ".claude-plugin/marketplace.json")
+          plugins=$(jq -r '.plugins | length' ".claude-plugin/marketplace.json")
           if [[ -z "$name" ]]; then
             echo "FAIL: marketplace.json missing name"
             exit 1
@@ -132,7 +132,7 @@ jobs:
         run: |
           matches=$(grep -r "CHANGEME" --include='*.md' --include='*.yml' --include='*.json' --include='*.sh' \
             --exclude-dir='templates' --exclude-dir='scripts' --exclude-dir='tests' --exclude-dir='fixtures' \
-            "$PLUGIN_DIR" marketplace.json README.md CHANGELOG.md install.sh 2>/dev/null || true)
+            "$PLUGIN_DIR" .claude-plugin/marketplace.json README.md CHANGELOG.md install.sh 2>/dev/null || true)
           if [[ -n "$matches" ]]; then
             echo "FAIL: unresolved CHANGEME placeholders found:"
             echo "$matches"
