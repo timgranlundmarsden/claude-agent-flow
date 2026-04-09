@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Showcase — Claude Agent Flow</title>
+  <meta name="description" content="Real-world examples of Claude Agent Flow in action — see multi-agent builds, reviews, and full pipeline runs.">
+  <meta property="og:title" content="Showcase — Claude Agent Flow">
+  <meta property="og:description" content="Real-world examples of Claude Agent Flow in action — see multi-agent builds, reviews, and full pipeline runs.">
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/showcase.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Agent Flow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Showcase — Claude Agent Flow">
+  <meta name="twitter:description" content="Real-world examples of Claude Agent Flow in action — see multi-agent builds, reviews, and full pipeline runs.">
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/showcase.html">
+  <style>
+    /* ── CSS TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    /* ── RESET & BASE STYLES ─────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; font-family: var(--font);
+      background: var(--bg); color: var(--text);
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0,113,227,.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(124,58,237,.015) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+    .page {
+      max-width: 1180px; margin: 0 auto; padding: 0 24px;
+    }
+    @media (max-width: 768px) {
+      .page { padding: 0 20px; }
+    }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky; top: 0;
+      background: rgba(251,251,253,0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+    }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link {
+      color: var(--text-secondary); display: flex; align-items: center;
+      opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none;
+    }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto; font-size: 14px;
+    }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 12px; border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle {
+      color: var(--text-secondary); font-size: 14px;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      min-width: 140px; padding: 6px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+      z-index: 200;
+    }
+    .nav-dropdown:hover .nav-dropdown-menu,
+    .nav-dropdown:focus-within .nav-dropdown-menu {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+    .nav-dropdown-menu a {
+      display: block; padding: 8px 12px; border-radius: 6px;
+      color: var(--text); text-decoration: none; font-size: 13px;
+      transition: background 0.15s;
+    }
+    .nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+    .nav-toggle-cb {
+      position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+    }
+    .burger-icon {
+      display: none; cursor: pointer;
+      width: 44px; height: 44px;
+      align-items: center; justify-content: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow);
+      flex-shrink: 0; margin-left: auto;
+    }
+    .burger-bar, .burger-bar::before, .burger-bar::after {
+      display: block; width: 20px; height: 2px;
+      background: var(--text); border-radius: 1px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top: 6px; }
+    .nav-toggle-cb:checked ~ * .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ * .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ * .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 999; opacity: 0; visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s; cursor: pointer;
+    }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer {
+      position: fixed; top: 0; right: 0;
+      width: min(260px, 75vw); height: 100%;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+      padding: 72px 20px 24px; overflow-y: auto; gap: 4px;
+    }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a {
+      display: flex; align-items: center; min-height: 44px;
+      padding: 10px 14px; font-size: 14px; color: var(--text);
+      text-decoration: none; border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 44px; height: 44px; display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: var(--text-secondary);
+      cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s;
+    }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    .drawer-reference-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-secondary);
+      padding: 12px 14px 4px;
+    }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover { color: var(--blue); }
+    @media (max-width: 768px) {
+      .nav-links, .nav-dropdown { display: none !important; }
+      .burger-icon { display: flex !important; }
+    }
+    @media (min-width: 768.01px) {
+      .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; }
+    }
+
+    /* ── HERO SECTION ─────────────────────────────────────────── */
+    .hero {
+      padding: 40px 0 24px; text-align: center;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface-alt) 100%);
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 0 0 20px;
+    }
+    .hero h1 {
+      font-family: var(--font); font-size: clamp(44px, 8vw, 72px);
+      font-weight: 700; line-height: 1.1; margin: 0 0 24px;
+      color: var(--text);
+    }
+    .subtitle {
+      font-size: clamp(18px, 3vw, 22px); line-height: 1.4;
+      color: var(--text-secondary); margin: 0 auto 24px;
+      max-width: 1100px;
+    }
+    @media (max-width: 768px) {
+      .hero { padding: 30px 0 40px; }
+    }
+
+    /* ── CONSOLE TEASER ──────────────────────────────────────── */
+    .console-section { padding: 0 0 40px; }
+    .console-label-block { text-align: center; margin-bottom: 32px; }
+    .console-eyebrow {
+      font-size: 11px; font-weight: 600; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .console-heading {
+      font-size: 28px; font-weight: 700; color: var(--text);
+      letter-spacing: -.02em;
+    }
+    .console-teaser {
+      background: #1a1a1f; border-radius: var(--radius-lg);
+      max-width: 860px; margin: 0 auto; overflow: hidden;
+    }
+    .console-title-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .console-dots { display: flex; gap: 6px; }
+    .cdot { width: 12px; height: 12px; border-radius: 50%; display: block; }
+    .cdot.red { background: #ff5f57; }
+    .cdot.amber { background: #febc2e; }
+    .cdot.green { background: #28c840; }
+    .console-label { font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,.4); margin-left: 4px; }
+    .console-lines {
+      padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 12px;
+      min-height: 200px;
+    }
+    .cline {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-family: var(--mono); font-size: 12.5px; color: rgba(255,255,255,.75);
+      opacity: 0; transform: translateY(6px);
+      animation: consoleFade 0.6s ease forwards;
+      animation-play-state: paused;
+    }
+    .cline.playing { animation-play-state: running; }
+    @keyframes consoleFade { to { opacity: 1; transform: none; } }
+    .badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      padding: 2px 7px; border-radius: 4px; color: rgba(255,255,255,.85);
+      white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    }
+    .badge.orchestrator { background: #3a2060; }
+    .badge.explorer { background: #1a3050; }
+    .badge.architect { background: #0a3a20; }
+    .badge.builder { background: #3a2000; }
+    .badge.critic { background: #3a0000; }
+    .ctext code { color: rgba(255,255,255,.55); }
+    .ctext strong.pass { color: #34d058; }
+    @media (max-width: 768px) {
+      .console-section { padding: 0 0 30px; }
+      .console-lines { padding: 16px; }
+      .cline { gap: 8px; }
+      .badge { font-size: 9px; padding: 1px 5px; }
+    }
+
+    /* ── SHOWCASE CARDS GRID ─────────────────────────────────── */
+    .showcase-section { padding: 24px 0; }
+    .section-header { text-align: center; margin-bottom: 32px; }
+    .section-title {
+      font-family: var(--font); font-size: clamp(36px, 6vw, 48px);
+      font-weight: 700; color: var(--text); margin: 0;
+    }
+    .showcase-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px; max-width: 1100px; margin: 0 auto;
+    }
+    .showcase-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none; color: inherit; display: block;
+      opacity: 0; transform: translateY(12px);
+      animation: cardFade 0.6s ease forwards;
+      animation-delay: calc(var(--i, 0) * 150ms);
+    }
+    .showcase-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+      text-decoration: none; color: inherit;
+    }
+    @keyframes cardFade { to { opacity: 1; transform: translateY(0); } }
+    .card-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 4px 10px; border-radius: 20px; margin-bottom: 16px;
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+    .card-tag.bug-fix {
+      background: #fff3f3; color: var(--fail);
+    }
+    .card-tag.feature {
+      background: #f0ebff; color: var(--opus);
+    }
+    .card-tag.document {
+      background: #e8f8ec; color: var(--haiku);
+    }
+    .card-tag.development {
+      background: #e8f0ff; color: #0071e3;
+    }
+    .card-title {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      margin: 0 0 12px; font-family: var(--font);
+    }
+    .card-desc {
+      font-size: 14px; color: var(--text-secondary);
+      margin: 0 0 20px; line-height: 1.4;
+    }
+    .card-cta {
+      font-size: 14px; font-weight: 600; color: var(--blue);
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: gap 0.2s ease;
+    }
+    .showcase-card:hover .card-cta { gap: 8px; }
+    @media (max-width: 768px) {
+      .showcase-section { padding: 30px 0; }
+      .showcase-grid { grid-template-columns: 1fr; gap: 24px; }
+      .showcase-card { padding: 24px; }
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────────────── */
+    .footer {
+      padding: 40px 0; border-top: 1px solid var(--border);
+      text-align: center; font-size: 14px; color: var(--text-secondary);
+    }
+    .footer a {
+      color: var(--blue); text-decoration: none;
+      transition: text-decoration 0.15s;
+    }
+    .footer a:hover { text-decoration: underline; }
+
+    /* ── NOSCRIPT ────────────────────────────────────────────────── */
+    noscript .cline { opacity: 1 !important; animation: none !important; }
+  </style>
+
+  <noscript>
+    <style>
+      .cline { opacity: 1 !important; animation: none !important; }
+    </style>
+  </noscript>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html" class="nav-active" aria-current="page">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html" class="nav-active" aria-current="page">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="page">
+        <p class="eyebrow">BUILT WITH AGENT FLOW</p>
+        <h1>Showcase</h1>
+        <p class="subtitle">See real outputs generated by Claude Agent Flow planning and building session</p>
+      </div>
+    </section>
+
+    <!-- Showcase Cards -->
+    <section class="showcase-section">
+      <div class="page">
+        <div class="showcase-grid">
+
+          <a href="visualiser.html?logid=bug-fixes" class="showcase-card" style="--i:0">
+            <span class="card-tag bug-fix">Bug fixes</span>
+            <h3 class="card-title">Bug Fix Session</h3>
+            <p class="card-desc">Multi-file bug hunt across a TypeScript codebase — explorer maps affected files, critic verifies the fix covers all edge cases.</p>
+            <span class="card-cta">View session →</span>
+          </a>
+
+          <a href="visualiser.html?logid=build-console-simulator" class="showcase-card" style="--i:1">
+            <span class="card-tag feature">Feature build</span>
+            <h3 class="card-title">Console Visualiser</h3>
+            <p class="card-desc">Full /build run for the session replay visualiser — plan, architect, build, adversarial loop, tester, reviewer, author in one shot.</p>
+            <span class="card-cta">View session →</span>
+          </a>
+
+          <a href="visualiser.html?logid=enhance-seo" class="showcase-card" style="--i:2">
+            <span class="card-tag development">Development</span>
+            <h3 class="card-title">Improve SEO</h3>
+            <p class="card-desc">Improve your website SEO by researching best practices and updating all your pages to have best in class SEO</p>
+            <span class="card-cta">View session →</span>
+          </a>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Console Teaser -->
+    <section class="console-section">
+      <div class="page">
+        <div class="console-label-block">
+          <p class="console-eyebrow"><a href="visualiser.html?logid=bug-fixes" style="color:inherit;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;">SEE IT IN ACTION</a></p>
+          <h3 class="console-heading">Watch the pipeline run</h3>
+        </div>
+        <div class="console-teaser" aria-label="Live console demo">
+          <div class="console-title-bar">
+            <div class="console-dots">
+              <span class="cdot red"></span>
+              <span class="cdot amber"></span>
+              <span class="cdot green"></span>
+            </div>
+            <span class="console-label">agent-flow — build session</span>
+          </div>
+          <div class="console-lines" id="consoleLinesShowcase">
+            <div class="cline"><span class="badge orchestrator">ORCHESTRATOR</span><span class="ctext">Received brief: <code>/build @plans/2026-04-06-2012-agent-flow-demo-visualiser.md</code></span></div>
+            <div class="cline"><span class="badge explorer">EXPLORER</span><span class="ctext">Scanning codebase — mapping <code>docs/public/</code>, <code>.claude/agents/</code>, existing HTML patterns…</span></div>
+            <div class="cline"><span class="badge architect">ARCHITECT</span><span class="ctext">Design complete. Single-file visualiser with embedded JS — no external deps, vanilla playback engine.</span></div>
+            <div class="cline"><span class="badge builder">BUILDER</span><span class="ctext">Writing <code>visualiser.html</code> — console panel, flow diagram, playback controls, mobile layout…</span></div>
+            <div class="cline"><span class="badge critic">CRITIC</span><span class="ctext">Reviewing implementation… <strong class="pass">PASS</strong> — playback engine correct, responsive layout verified, no regressions.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="page">
+      Apache 2.0 · Built with Claude Agent Flow · <a href="index.html">Home</a>
+    </div>
+  </footer>
+
+  <script>
+    // Console teaser animation loop
+    (function() {
+      const lines = document.querySelectorAll('#consoleLinesShowcase .cline');
+      function runCycle() {
+        lines.forEach(l => {
+          l.classList.remove('playing');
+          l.style.opacity = '0';
+          l.style.transform = 'translateY(6px)';
+          l.style.animationDelay = '';
+        });
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          lines.forEach((l, i) => {
+            l.style.animationDelay = (i * 1000) + 'ms';
+            l.classList.add('playing');
+          });
+          setTimeout(runCycle, 11000);
+        }));
+      }
+      runCycle();
+    })();
+  </script>
+
+</body>
+</html>

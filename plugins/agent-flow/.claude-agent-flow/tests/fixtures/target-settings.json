@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": ["Bash(git *)", "Bash(cargo build)"],
+    "deny": [],
+    "defaultMode": "allowEdits"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "pattern": "*.py",
+        "hooks": [{"type": "command", "command": "black ."}]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "target-market": {"url": "https://target.example.com"}
+  },
+  "enabledPlugins": {
+    "target-plugin": true
+  },
+  "customKey": "preserved"
+}

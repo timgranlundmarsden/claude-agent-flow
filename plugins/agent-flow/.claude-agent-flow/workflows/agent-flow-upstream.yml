@@ -1,0 +1,359 @@
+# Agent Flow Upstream Sync — Target → Source
+#
+# Installed in each target (child) repo. When managed files change on main,
+# creates a PR to the source repo (agent-flow) to propose the improvements.
+#
+# Loop prevention: exits if commit has Agent-Flow-Sync-Origin trailer.
+# Opt-out: set AGENT_FLOW_UPSTREAM_SYNC_ENABLED=false as a repo variable to disable.
+# Upstream PRs require manual review before merging.
+
+name: Agent Flow Upstream Sync
+
+on:
+  push:
+    branches: [main]
+    # No paths filter — manifest-driven detection in "Detect managed file changes" step
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  upstream-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if upstream sync is enabled
+        id: enabled-check
+        run: |
+          ENABLED="${{ vars.AGENT_FLOW_UPSTREAM_SYNC_ENABLED }}"
+          # Default to true if not set; only disable on explicit false
+          if [[ "${ENABLED,,}" == "false" ]]; then
+            echo "Upstream sync disabled by AGENT_FLOW_UPSTREAM_SYNC_ENABLED variable."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for sync loop
+        if: steps.enabled-check.outputs.skip == 'false'
+        id: loop-check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+          check_sync_loop >> "$GITHUB_OUTPUT"
+
+      - name: Validate secrets
+        id: secrets-validate
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false'
+        env:
+          AGENT_FLOW_SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
+          N8N_SYNC_WEBHOOK_URL: ${{ secrets.N8N_SYNC_WEBHOOK_URL }}
+          BACKLOG_NOTIFY_FROM: ${{ secrets.BACKLOG_NOTIFY_FROM }}
+        run: |
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+          validate_secrets \
+            "AGENT_FLOW_SYNC_TOKEN" \
+            $'N8N_SYNC_WEBHOOK_URL\nBACKLOG_NOTIFY_FROM' \
+            "Upstream Sync"
+
+      - name: Install dependencies
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false'
+        run: pip install pyyaml
+
+      - name: Clone source repo
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false'
+        env:
+          SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
+        run: |
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+
+          SOURCE_REPO=$(parse_source_repo)
+          if [[ ! "$SOURCE_REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+            echo "Invalid source repo: $SOURCE_REPO"
+            exit 1
+          fi
+          CLONE_OUTPUT=$(git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${SOURCE_REPO}.git" /tmp/source-repo 2>&1) || {
+            echo "$CLONE_OUTPUT" | redact_token
+            unset CLONE_OUTPUT
+            echo "ERROR: Failed to clone source repo $SOURCE_REPO"
+            exit 1
+          }
+          unset CLONE_OUTPUT
+
+      - name: Detect managed file changes
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false'
+        id: changes
+        run: |
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+
+          # managed_files + upstream-eligible merge_files (json-deep-merge, section-patch)
+          MANAGED_PATHS=$(list_managed_paths --include-upstream-merge)
+
+          if [[ -z "$MANAGED_PATHS" ]]; then
+            echo "No managed paths found in manifest."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Compare each managed file against the source repo's copy.
+          # This catches ALL differences, not just last-commit changes,
+          # so previously failed syncs are automatically retried.
+          CHANGED=""
+          while IFS= read -r path; do
+            [[ -f "$path" ]] || continue
+            SOURCE_FILE="/tmp/source-repo/$path"
+            if [[ ! -f "$SOURCE_FILE" ]] || ! diff -q "$path" "$SOURCE_FILE" >/dev/null 2>&1; then
+              CHANGED="${CHANGED}${path}"$'\n'
+            fi
+          done <<< "$MANAGED_PATHS"
+          CHANGED=$(detect_real_changes "$CHANGED")
+
+          if [[ -z "$CHANGED" ]]; then
+            echo "All managed files match source repo — nothing to sync."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Managed files that differ from source:"
+            echo "$CHANGED"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "$CHANGED" > /tmp/changed-files.txt
+          fi
+
+      - name: Create upstream branch and copy changes
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true'
+        env:
+          SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
+        run: |
+          source "${{ github.workspace }}/.claude-agent-flow/scripts/agent-flow-workflow-helpers.sh"
+
+          REPO_NAME="${{ github.repository }}"
+          REPO_SLUG=$(echo "$REPO_NAME" | tr '/' '-')
+          BRANCH_NAME="sync/upstream-${REPO_SLUG}"
+
+          cd /tmp/source-repo
+
+          # Additive: if the branch already exists (open PR from a previous sync),
+          # check it out so new files accumulate on top of previous changes.
+          # This prevents a race condition where rapid successive pushes to main
+          # cause the second run to clobber the first run's files.
+          PUSH_MODE="force-with-lease"
+          if git ls-remote --heads origin "$BRANCH_NAME" 2>/dev/null | grep -q "refs/heads/${BRANCH_NAME}$"; then
+            FETCH_OUT=$(git fetch origin "$BRANCH_NAME" 2>&1) || {
+              echo "$FETCH_OUT" | redact_token
+              echo "WARN: Failed to fetch existing branch, creating fresh"
+            }
+            unset FETCH_OUT
+            if git rev-parse "origin/$BRANCH_NAME" >/dev/null 2>&1; then
+              git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME"
+              echo "Checked out existing branch $BRANCH_NAME (additive sync)"
+            else
+              git checkout -b "$BRANCH_NAME"
+              PUSH_MODE="force"
+              echo "Created new branch $BRANCH_NAME (fetch failed, using --force)"
+            fi
+          else
+            git checkout -b "$BRANCH_NAME"
+            echo "Created new branch $BRANCH_NAME"
+          fi
+
+          # Copy changed files from target to source
+          # Merge files (settings.json, CLAUDE.md) use reverse-merge to extract
+          # only managed portions; regular managed_files are copied directly.
+          SCRIPT_DIR="${{ github.workspace }}/.claude-agent-flow/scripts"
+          MANIFEST="${{ github.workspace }}/.claude-agent-flow/repo-sync-manifest.yml"
+
+          # Read managed section names from manifest for CLAUDE.md
+          MANAGED_SECTIONS=()
+          in_sections=false
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^[[:space:]]+managed_sections: ]]; then
+              in_sections=true
+              continue
+            fi
+            if $in_sections; then
+              if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+\"(.+)\" ]]; then
+                MANAGED_SECTIONS+=("${BASH_REMATCH[1]}")
+              elif [[ ! "$line" =~ ^[[:space:]]+-[[:space:]] ]]; then
+                break
+              fi
+            fi
+          done < "$MANIFEST"
+
+          while IFS= read -r file; do
+            [[ -f "${{ github.workspace }}/$file" ]] || continue
+            mkdir -p "$(dirname "$file")"
+
+            if [[ "$file" == ".claude/settings.json" && -f "$file" ]]; then
+              # Reverse merge: extract _agentFlow-tagged hooks from downstream
+              if "$SCRIPT_DIR/reverse-merge-settings-json.sh" \
+                "${{ github.workspace }}/$file" "$file" > "${file}.tmp" 2>/dev/null; then
+                mv "${file}.tmp" "$file"
+                echo "  [reverse-merge] $file"
+              else
+                rc=$?
+                rm -f "${file}.tmp"
+                if [[ "$rc" -eq 2 ]]; then
+                  echo "  [skip] $file (no managed differences)"
+                else
+                  echo "  [error] $file reverse merge failed"
+                fi
+              fi
+            elif [[ "$file" == "CLAUDE.md" && -f "$file" && ${#MANAGED_SECTIONS[@]} -gt 0 ]]; then
+              # Reverse patch: extract managed sections from downstream into source
+              if "$SCRIPT_DIR/patch-claude-md.sh" \
+                "${{ github.workspace }}/$file" "$file" \
+                "${MANAGED_SECTIONS[@]}" > "${file}.tmp" 2>/dev/null; then
+                mv "${file}.tmp" "$file"
+                echo "  [reverse-patch] $file"
+              else
+                rm -f "${file}.tmp"
+                echo "  [error] $file reverse patch failed"
+              fi
+            else
+              cp "${{ github.workspace }}/$file" "$file"
+              echo "  [copy] $file"
+            fi
+          done < /tmp/changed-files.txt
+
+          # Configure git
+          git config user.name "agent-flow-sync[bot]"
+          git config user.email "agent-flow-sync[bot]@users.noreply.github.com"
+
+          # Check for actual changes (including new untracked files)
+          if git diff --quiet && git diff --cached --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
+            echo "No actual changes to sync."
+            echo "false" > /tmp/has-diff
+            exit 0
+          fi
+
+          git add -A
+          COMMIT_MSG=$(printf 'feat: sync managed files from %s\n\nUpstream sync of managed agent-flow files.\nSource commit: %s\n\nAgent-Flow-Sync-Origin: %s' \
+            "${REPO_NAME}" "${{ github.sha }}" "${REPO_NAME}")
+          git commit -m "$COMMIT_MSG"
+
+          PUSH_OUTPUT=$(git push --${PUSH_MODE} origin "$BRANCH_NAME" 2>&1) || {
+            echo "$PUSH_OUTPUT" | redact_token
+            unset PUSH_OUTPUT
+            echo "Push failed"
+            exit 1
+          }
+          unset PUSH_OUTPUT
+          echo "true" > /tmp/has-diff
+          echo "$BRANCH_NAME" > /tmp/branch-name
+
+      - name: Create PR to source
+        if: steps.enabled-check.outputs.skip == 'false' && steps.loop-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true'
+        env:
+          SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
+          N8N_SYNC_WEBHOOK_URL: ${{ secrets.N8N_SYNC_WEBHOOK_URL }}
+          NOTIFY_FROM: ${{ secrets.BACKLOG_NOTIFY_FROM }}
+        run: |
+          if [[ "$(cat /tmp/has-diff 2>/dev/null)" != "true" ]]; then
+            echo "No changes to PR."
+            exit 0
+          fi
+
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+          SOURCE_REPO=$(parse_source_repo)
+          BRANCH_NAME=$(cat /tmp/branch-name)
+          REPO_NAME="${{ github.repository }}"
+
+          # Detect default branch via API (git symbolic-ref is unreliable in shallow clones)
+          DEFAULT_BRANCH=$(curl -sf \
+            -H "Authorization: token ${SYNC_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${SOURCE_REPO}" | jq -r '.default_branch // empty' || true)
+          DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
+          ALL_FILES=$(cat /tmp/changed-files.txt || true)
+          if [[ -z "$ALL_FILES" ]]; then
+            CHANGED_FILES="(no files)"
+          else
+            FILE_COUNT=$(echo "$ALL_FILES" | wc -l)
+            if [[ "$FILE_COUNT" -gt 5 ]]; then
+              CHANGED_FILES="$(echo "$ALL_FILES" | head -5 | tr '\n' ', ' | sed 's/,$//') (+$((FILE_COUNT - 5)) more)"
+            else
+              CHANGED_FILES=$(echo "$ALL_FILES" | tr '\n' ', ' | sed 's/,$//')
+            fi
+          fi
+
+          # Create PR via GitHub API
+          PR_BODY=$(printf '## Upstream Sync from %s\n\nManaged files were updated in `%s` and are being proposed upstream.\n\n### Changed files\n```\n%s\n```\n\n### Source commit\nhttps://github.com/%s/commit/%s\n\nAgent-Flow-Sync-Origin: %s\n\n---\n*Auto-generated by agent-flow upstream sync workflow.*' \
+            "${REPO_NAME}" "${REPO_NAME}" "${CHANGED_FILES}" "${REPO_NAME}" "${{ github.sha }}" "${REPO_NAME}")
+
+          # Check if an open PR already exists for this branch
+          EXISTING_PR=$(curl -s \
+            -H "Authorization: token ${SYNC_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${SOURCE_REPO}/pulls?head=$(echo "$REPO_NAME" | cut -d/ -f1):${BRANCH_NAME}&state=open" \
+            | jq -r '.[0].html_url // empty')
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            # Update existing PR
+            PR_NUMBER=$(echo "$EXISTING_PR" | grep -oP '\d+$')
+            PATCH_RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
+              -H "Authorization: token ${SYNC_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${SOURCE_REPO}/pulls/${PR_NUMBER}" \
+              -d "$(jq -n \
+                --arg title "sync: upstream from ${REPO_NAME}" \
+                --arg body "$PR_BODY" \
+                '{title: $title, body: $body}')")
+            PATCH_HTTP=$(echo "$PATCH_RESPONSE" | tail -1)
+            if [[ "$PATCH_HTTP" -ge 400 ]]; then
+              echo "WARN: Failed to update PR $PR_NUMBER (HTTP $PATCH_HTTP)"
+            fi
+            PR_URL="$EXISTING_PR"
+            echo "PR updated: $PR_URL"
+          else
+            # Create new PR
+            PR_URL=$(curl -s -X POST \
+              -H "Authorization: token ${SYNC_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${SOURCE_REPO}/pulls" \
+              -d "$(jq -n \
+                --arg title "sync: upstream from ${REPO_NAME}" \
+                --arg head "$BRANCH_NAME" \
+                --arg base "$DEFAULT_BRANCH" \
+                --arg body "$PR_BODY" \
+                '{title: $title, head: $head, base: $base, body: $body}')" \
+              | jq -r '.html_url')
+            echo "PR created: $PR_URL"
+
+            # Add label
+            PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+            if [[ -n "$PR_NUMBER" ]]; then
+              curl -s -X POST \
+                -H "Authorization: token ${SYNC_TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${SOURCE_REPO}/issues/${PR_NUMBER}/labels" \
+                -d '{"labels":["agent-flow-sync"]}' > /dev/null
+            fi
+          fi
+
+          # Notify via n8n webhook (same pattern as backlog-notify)
+          if [[ -n "$N8N_SYNC_WEBHOOK_URL" ]]; then
+            if [[ -n "$EXISTING_PR" ]]; then
+              NOTIFY_ACTION="updated"
+            else
+              NOTIFY_ACTION="created"
+            fi
+            PAYLOAD=$(jq -n \
+              --arg direction "upstream" \
+              --arg action "$NOTIFY_ACTION" \
+              --arg source_repo "$REPO_NAME" \
+              --arg target_repo "$SOURCE_REPO" \
+              --arg pr_url "$PR_URL" \
+              --arg changed_files "$CHANGED_FILES" \
+              --arg From "${NOTIFY_FROM:-agent-flow-sync}" \
+              --arg Body "$(printf '⬆️ <b>Agent Flow Upstream Sync PR %s</b>\n\n📦 <b>From:</b> %s\n🎯 <b>To:</b> %s\n📋 <b>Files:</b> %s\n🔗 <a href=\"%s\">Review PR</a>' "$NOTIFY_ACTION" "$REPO_NAME" "$SOURCE_REPO" "$CHANGED_FILES" "$PR_URL")" \
+              --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              '{direction: $direction, action: $action, source_repo: $source_repo, target_repo: $target_repo, pr_url: $pr_url, changed_files: $changed_files, From: $From, Body: $Body, timestamp: $timestamp}')
+            curl -s -o /dev/null -w "" -X POST "$N8N_SYNC_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d "$PAYLOAD" || true
+          fi

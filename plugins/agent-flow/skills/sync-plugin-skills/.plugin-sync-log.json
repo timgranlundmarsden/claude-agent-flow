@@ -1,0 +1,68 @@
+[
+  {
+    "skill": "brainstorming",
+    "plugin": "superpowers@claude-plugins-official",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/SKILL.md",
+    "synced_at": "2026-04-08T12:43:03Z"
+  },
+  {
+    "skill": "frontend-design",
+    "plugin": "frontend-design@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/frontend-design/1.0.0/skills/frontend-design/SKILL.md",
+    "synced_at": "2026-04-08T12:43:03Z"
+  },
+  {
+    "skill": "agent-development",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/agent-development/SKILL.md",
+    "synced_at": "2026-04-08T12:43:03Z"
+  },
+  {
+    "skill": "command-development",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/command-development/SKILL.md",
+    "synced_at": "2026-04-08T12:43:03Z"
+  },
+  {
+    "skill": "hook-development",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/hook-development/SKILL.md",
+    "synced_at": "2026-04-08T12:43:03Z"
+  },
+  {
+    "skill": "mcp-integration",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/mcp-integration/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  },
+  {
+    "skill": "plugin-settings",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/plugin-settings/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  },
+  {
+    "skill": "plugin-structure",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/plugin-structure/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  },
+  {
+    "skill": "skill-development",
+    "plugin": "plugin-dev@claude-code-plugins",
+    "source": "/Users/tglm/.claude/plugins/cache/claude-code-plugins/plugin-dev/0.1.0/skills/skill-development/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  },
+  {
+    "skill": "frontend-design",
+    "plugin": "document-skills@anthropic-agent-skills",
+    "source": "/Users/tglm/.claude/plugins/cache/anthropic-agent-skills/document-skills/00756142ab04/skills/frontend-design/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  },
+  {
+    "skill": "brainstorming",
+    "plugin": "superpowers@superpowers-marketplace",
+    "source": "/Users/tglm/.claude/plugins/cache/superpowers-marketplace/superpowers/5.0.7/skills/brainstorming/SKILL.md",
+    "synced_at": "2026-04-08T12:43:04Z"
+  }
+]

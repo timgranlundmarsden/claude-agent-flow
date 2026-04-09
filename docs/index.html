@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Agent Flow</title>
+  <meta name="description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta property="og:title" content="Claude Agent Flow">
+  <meta property="og:description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Agent Flow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Agent Flow">
+  <meta name="twitter:description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/">
+  <style>
+    /* ── CSS TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    /* ── SECTIONS PLACEHOLDER ──────────────────────────────────────── */
+
+    /* ── RESET & BASE STYLES ─────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; font-family: var(--font);
+      background: var(--bg); color: var(--text);
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0,113,227,.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(124,58,237,.015) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+    .page {
+      max-width: 1200px; margin: 0 auto; padding: 0 24px;
+    }
+    @media (max-width: 768px) {
+      .page { padding: 0 20px; }
+    }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky; top: 0;
+      background: rgba(251,251,253,0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100; user-select: none;
+    }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+    }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link {
+      color: var(--text-secondary); display: flex; align-items: center;
+      opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none;
+    }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto; font-size: 14px;
+    }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 12px; border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+
+    /* Reference dropdown */
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle {
+      color: var(--text-secondary); font-size: 14px;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; gap: 4px;
+      white-space: nowrap; user-select: none;
+    }
+    .nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      min-width: 140px; padding: 6px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+      z-index: 200;
+    }
+    .nav-dropdown:hover .nav-dropdown-menu,
+    .nav-dropdown:focus-within .nav-dropdown-menu {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+    .nav-dropdown-menu a {
+      display: block; padding: 8px 12px; border-radius: 6px;
+      color: var(--text); text-decoration: none; font-size: 13px;
+      transition: background 0.15s;
+    }
+    .nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+
+    /* Mobile hamburger (CSS-only, reusing existing pattern) */
+    .nav-toggle-cb {
+      position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+    }
+    .burger-icon {
+      display: none; cursor: pointer;
+      width: 44px; height: 44px;
+      align-items: center; justify-content: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow);
+      flex-shrink: 0; margin-left: auto;
+    }
+    .burger-bar, .burger-bar::before, .burger-bar::after {
+      display: block; width: 20px; height: 2px;
+      background: var(--text); border-radius: 1px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top: 6px; }
+    .nav-toggle-cb:checked ~ * .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ * .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ * .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 999; opacity: 0; visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s; cursor: pointer;
+    }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer {
+      position: fixed; top: 0; right: 0;
+      width: min(260px, 75vw); height: 100%;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+      padding: 72px 20px 24px; overflow-y: auto; gap: 4px;
+    }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a {
+      display: flex; align-items: center; min-height: 44px;
+      padding: 10px 14px; font-size: 14px; color: var(--text);
+      text-decoration: none; border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 44px; height: 44px; display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: var(--text-secondary);
+      cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s;
+    }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    /* Reference sub-list in mobile drawer */
+    .drawer-reference-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-secondary);
+      padding: 12px 14px 4px;
+    }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover { color: var(--blue); }
+    @media (max-width: 768px) {
+      .nav-links, .nav-dropdown { display: none !important; }
+      .burger-icon { display: flex !important; }
+    }
+    @media (min-width: 768.01px) {
+      .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; }
+    }
+
+    /* ── HERO SECTION ─────────────────────────────────────────── */
+    .hero {
+      padding: 40px 0 48px; text-align: center;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface-alt) 100%);
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 0 0 20px;
+    }
+    .hero h1 {
+      font-family: var(--font); font-size: clamp(44px, 8vw, 72px);
+      font-weight: 700; line-height: 1.1; margin: 0 0 24px;
+      color: var(--text);
+    }
+    .blue-gradient {
+      background: linear-gradient(135deg, var(--blue), #004db3);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      font-size: clamp(18px, 3vw, 22px); line-height: 1.4;
+      color: var(--text-secondary); margin: 0 auto 24px;
+      max-width: 600px;
+    }
+    .hero-intro {
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto 24px;
+      text-align: center;
+    }
+    .hero-bullets {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; max-width: 1060px; margin: 0 auto;
+    }
+    @media (max-width: 900px) {
+      .hero-bullets { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .hero-bullets { grid-template-columns: 1fr; }
+    }
+    .hero-bullet {
+      display: flex; align-items: flex-start; gap: 16px;
+      text-align: left; padding: 24px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .hero-bullet:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+    }
+    .hero-bullet-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--blue); flex-shrink: 0; margin-top: 6px;
+    }
+    .hero-bullet div strong {
+      display: block; font-weight: 600; font-size: 15px;
+      color: var(--text); margin-bottom: 4px;
+    }
+    .hero-bullet div span {
+      font-size: 14px; color: var(--text-secondary); line-height: 1.4;
+    }
+    @media (max-width: 768px) {
+      .hero { padding: 30px 0 40px; }
+      .hero-bullets { grid-template-columns: 1fr; gap: 20px; }
+      .hero-bullet { padding: 20px; }
+    }
+    @media (max-width: 480px) {
+      .hero-bullets { grid-template-columns: 1fr; }
+    }
+
+    /* ── CONSOLE TEASER ──────────────────────────────────────── */
+    .console-section { padding: 0 0 40px; }
+    .console-teaser {
+      background: #1a1a1f; border-radius: var(--radius-lg);
+      max-width: 860px; margin: 0 auto; overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,.15), 0 0 0 1px rgba(255,255,255,.05);
+      width: 100%; box-sizing: border-box;
+    }
+    .console-title-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(135deg, #232329, #1a1a1f);
+    }
+    .console-dots { display: flex; gap: 6px; }
+    .cdot { width: 12px; height: 12px; border-radius: 50%; display: block; }
+    .cdot.red { background: #ff5f57; } .cdot.amber { background: #febc2e; } .cdot.green { background: #28c840; }
+    .console-label { font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,.4); margin-left: 4px; }
+    .console-lines {
+      padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 12px;
+      min-height: 200px; overflow-x: hidden;
+    }
+    .cline {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-family: var(--mono); font-size: 12.5px; color: rgba(255,255,255,.75);
+      opacity: 0; transform: translateY(6px);
+      animation: consoleFade 0.6s ease forwards;
+      animation-play-state: paused;
+      word-break: break-word; overflow-wrap: break-word;
+    }
+    .cline.playing { animation-play-state: running; }
+    @keyframes consoleFade { to { opacity: 1; transform: none; } }
+    .badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      padding: 2px 7px; border-radius: 4px; color: rgba(255,255,255,.85);
+      white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    }
+    .badge.orchestrator { background: #3a2060; }
+    .badge.explorer { background: #1a3050; }
+    .badge.architect { background: #0a3a20; }
+    .badge.builder { background: #3a2000; }
+    .badge.critic { background: #3a0000; }
+    .ctext {
+      min-width: 0; flex: 1;
+    }
+    .ctext code {
+      color: rgba(255,255,255,.55); background: rgba(255,255,255,.05);
+      padding: 1px 4px; border-radius: 3px;
+      word-break: break-all; overflow-wrap: break-word;
+    }
+    .ctext strong.pass { color: #34d058; }
+    @media (max-width: 768px) {
+      .console-section { padding: 0 0 30px; }
+      .console-lines { padding: 16px; font-size: 11px; }
+      .cline { gap: 8px; flex-wrap: wrap; }
+      .badge { font-size: 9px; padding: 1px 5px; }
+      .ctext { min-width: 0; flex: 1; }
+    }
+    @media (max-width: 480px) {
+      .console-lines { padding: 12px; font-size: 10px; }
+      .cline { gap: 6px; }
+      .badge { font-size: 8px; padding: 1px 4px; }
+    }
+
+    /* ── PIPELINES GRID ──────────────────────────────────────── */
+    .pipelines-section { padding: 16px 0 40px; background: var(--surface-alt); }
+    .section-header { text-align: center; margin-bottom: 32px; }
+    .section-title {
+      font-family: var(--font); font-size: clamp(36px, 6vw, 48px);
+      font-weight: 700; color: var(--text); margin: 0 0 16px;
+    }
+    .section-subtitle {
+      font-size: 18px; color: var(--text-secondary); margin: 0;
+      max-width: 600px; margin-left: auto; margin-right: auto;
+    }
+    .pipelines-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px; max-width: 1100px; margin: 0 auto;
+    }
+    .pipeline-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none; color: inherit; display: block;
+    }
+    .pipeline-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 32px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+      text-decoration: none; color: inherit;
+    }
+    .pipeline-title {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      margin: 0 0 8px; font-family: var(--mono);
+    }
+    .pipeline-desc {
+      font-size: 14px; color: var(--text-secondary);
+      margin: 0 0 24px; line-height: 1.4;
+    }
+    .pipeline-agents {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .agent-node {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 8px; font-size: 11px; font-weight: 600;
+      border-radius: 6px; background: var(--surface-alt);
+      border: 1px solid var(--border);
+    }
+    .agent-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .agent-dot.opus { background: var(--opus); }
+    .agent-dot.sonnet { background: var(--blue); }
+    .agent-dot.haiku { background: var(--haiku); }
+    .adversarial-loop {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 6px; font-size: 10px; font-weight: 600;
+      border-radius: 4px; background: rgba(255,59,48,.1);
+      border: 1px solid rgba(255,59,48,.2); color: var(--fail);
+    }
+    @media (max-width: 768px) {
+      .pipelines-section { padding: 12px 0 30px; }
+      .pipelines-grid { grid-template-columns: 1fr; gap: 24px; }
+      .pipeline-card { padding: 24px; }
+    }
+
+    /* ── PIPELINE COLUMNS (node card stacks) ─────────────────── */
+    .pipeline-grid {
+      display: grid; grid-template-columns: 1fr 1.6fr 1fr;
+      gap: 16px; align-items: start;
+    }
+    .pipeline-col {
+      background: var(--surface); border: 1px solid rgba(0,113,227,.3);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      padding: 24px 20px; position: relative;
+    }
+    .col-header {
+      font-family: var(--mono); font-size: 18px; font-weight: 600;
+      letter-spacing: -.01em; margin-bottom: 24px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,113,227,.06); margin: -24px -20px 24px;
+      padding: 16px 20px; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      border-bottom: 1px solid rgba(0,113,227,.18);
+    }
+    .col-header a { color: var(--blue); text-decoration: none; }
+    .col-header a:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .nodes { display: flex; flex-direction: column; gap: 0; }
+    .node-wrapper { display: flex; flex-direction: column; align-items: center; }
+    .connector { width: 2px; height: 24px; background: var(--border); flex-shrink: 0; }
+    .node-card {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 5px; position: relative;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s ease calc(var(--i,0)*80ms),
+                  transform 0.4s ease calc(var(--i,0)*80ms);
+    }
+    .pipeline-col.visible .node-card { opacity: 1; transform: none; }
+    .node-card-top { display: flex; align-items: center; gap: 8px; }
+    .node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-opus   { background: var(--opus); }
+    .dot-sonnet { background: var(--blue); }
+    .dot-haiku  { background: var(--haiku); }
+    .node-card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .node-card-model {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 20px; color: #fff;
+      letter-spacing: .02em; flex-shrink: 0;
+    }
+    .node-card-model.opus   { background: var(--opus); }
+    .node-card-model.sonnet { background: var(--blue); }
+    .node-card-model.haiku  { background: var(--haiku); }
+    .node-card-desc { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+    .cap-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+    .cap-tag { font-size: 10px; color: var(--text-secondary); background: var(--surface-alt); border-radius: 20px; padding: 2px 7px; font-weight: 500; letter-spacing: .02em; }
+    a.node-card-link { text-decoration: none; color: inherit; display: block; width: 100%; }
+    a.node-card-link:hover .node-card { border-color: var(--blue); box-shadow: 0 1px 3px rgba(0,113,227,.12), 0 0 0 1px rgba(0,113,227,.15); }
+    .adv-loop {
+      width: 100%; border: 2px dashed var(--fail); border-radius: var(--radius-md);
+      padding: 14px 14px 10px;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s ease calc(var(--i,0)*80ms), transform 0.4s ease calc(var(--i,0)*80ms);
+    }
+    .pipeline-col.visible .adv-loop { opacity: 1; transform: none; }
+    .adv-header { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fail); margin-bottom: 12px; }
+    .adv-inner { display: flex; flex-direction: column; align-items: center; gap: 0; }
+    .adv-loop .node-card { opacity: 1; transform: none; }
+    .branch-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0; }
+    .fail-label { font-size: 10px; font-weight: 700; color: #c5221f; letter-spacing: .04em; animation: pulseFail 1.4s ease-in-out infinite; }
+    .pass-label { font-size: 10px; font-weight: 700; color: var(--haiku); letter-spacing: .04em; }
+    .adv-arrows { width: 100%; height: 48px; overflow: visible; margin: 4px 0; }
+    .loop-arrow { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 200; animation: loopCycle 2s linear infinite; }
+    .arrow-path { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 200; stroke-dashoffset: 200; }
+    .pipeline-col.visible .arrow-path { animation: traceArrow 1s ease-out forwards; }
+    .deep-dive-link { display: block; text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--blue); text-decoration: none; letter-spacing: -.01em; }
+    .deep-dive-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    @media (max-width: 1024px) { .pipeline-grid { gap: 12px; } }
+    @media (max-width: 768px) { .pipeline-grid { grid-template-columns: 1fr; } }
+
+    /* ── AGENT ROSTER ─────────────────────────────────────────── */
+    .roster-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 28px;
+    }
+    .agent-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s ease calc(var(--i,0)*60ms), transform 0.4s ease calc(var(--i,0)*60ms);
+    }
+    .agent-card.visible { opacity: 1; transform: none; }
+    .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .card-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; color: #fff; margin-bottom: 8px; letter-spacing: .02em; }
+    .pill.opus   { background: var(--opus); }
+    .pill.sonnet { background: var(--blue); }
+    .pill.haiku  { background: var(--haiku); }
+    .card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+    .tier-legend { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    @media (max-width: 1024px) { .roster-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px)  { .roster-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px)  { .roster-grid { grid-template-columns: 1fr; } }
+    @keyframes pulseFail { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+    @keyframes traceArrow { to { stroke-dashoffset: 0; } }
+    @keyframes loopCycle { 0% { stroke-dashoffset: 200; } 50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -200; } }
+
+    /* ── BUILDING BLOCKS ─────────────────────────────────────── */
+    .blocks-section { padding: 40px 0; }
+    .blocks-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 32px; max-width: 1000px; margin: 0 auto;
+    }
+    .block-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow); text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .block-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+    }
+    .block-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), #004db3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; color: white; margin: 0 auto 20px;
+    }
+    .block-title {
+      font-size: 18px; font-weight: 700; color: var(--text);
+      margin: 0 0 12px;
+    }
+    .block-desc {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.5; margin: 0;
+    }
+    @media (max-width: 768px) {
+      .blocks-section { padding: 30px 0; }
+      .blocks-grid { grid-template-columns: 1fr; gap: 24px; }
+      .block-card { padding: 24px; }
+    }
+
+    /* ── PROJECT STRUCTURE ──────────────────────────────────── */
+    .structure-section { padding: 40px 0; background: var(--surface-alt); }
+    .structure-card {
+      background: #1a1a1f; border-radius: var(--radius-lg);
+      padding: 24px; max-width: 600px; margin: 0 auto;
+      box-shadow: 0 16px 32px rgba(0,0,0,.15);
+    }
+    .structure-code {
+      font-family: var(--mono); font-size: 13px;
+      line-height: 1.6; color: rgba(255,255,255,.8);
+      margin: 0; white-space: pre;
+      overflow-x: auto; max-width: 100%;
+    }
+    .tier-opus { color: #c084fc; }
+    .tier-sonnet { color: #60a5fa; }
+    .tier-haiku { color: #4ade80; }
+    @media (max-width: 768px) {
+      .structure-section { padding: 30px 0; }
+      .structure-card { padding: 20px; }
+      .structure-code { font-size: 12px; }
+    }
+
+    /* ── WHAT'S BUNDLED TABLE ───────────────────────────────── */
+    .bundled-section { padding: 40px 0; }
+    .bundled-table {
+      width: 100%; max-width: 800px; margin: 0 auto;
+      border-collapse: collapse; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .bundled-table th {
+      background: var(--surface-alt); padding: 16px 20px;
+      font-weight: 600; font-size: 14px; color: var(--text);
+      text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .bundled-table td {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-size: 14px; vertical-align: top;
+    }
+    .bundled-table tr:last-child td { border-bottom: none; }
+    .bundled-table td:first-child {
+      font-family: var(--mono); font-weight: 600;
+      color: var(--text);
+    }
+    .bundled-table td:nth-child(2) { color: var(--text); }
+    .bundled-table td:nth-child(3) { color: var(--text-secondary); }
+    @media (max-width: 768px) {
+      .bundled-section { padding: 30px 0; }
+      .bundled-table { font-size: 13px; }
+      .bundled-table th, .bundled-table td { padding: 12px 16px; }
+    }
+
+    /* ── DISCLAIMER CALLOUT ─────────────────────────────────── */
+    .disclaimer-section { padding: 0 0 40px; }
+    .callout-box {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 24px; border-radius: var(--radius-lg);
+      max-width: 800px; margin: 0 auto;
+    }
+    .callout-purple {
+      background: rgba(124,58,237,.05);
+      border: 1px solid rgba(124,58,237,.15);
+    }
+    .callout-icon {
+      font-size: 20px; flex-shrink: 0; margin-top: 2px;
+    }
+    .callout-box strong {
+      color: var(--text); font-weight: 600;
+    }
+    .callout-box div {
+      color: var(--text-secondary); line-height: 1.5;
+    }
+    @media (max-width: 768px) {
+      .disclaimer-section { padding: 0 0 30px; }
+      .callout-box { padding: 20px; gap: 12px; }
+    }
+
+  </style>
+
+  <noscript>
+    <style>
+      .cline { opacity: 1 !important; animation: none !important; }
+    </style>
+  </noscript>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html" class="nav-active" aria-current="page">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="page">
+        <p class="eyebrow">CLAUDE AGENT FLOW</p>
+        <h1>Plan. <span class="blue-gradient">Build.</span> Review.</h1>
+        <p class="subtitle">Agentic Workflow System within Claude Code - multi-agent pipeline that takes ideas from plan to production.</p>
+        <div class="hero-bullets">
+          <div class="hero-bullet"><span class="hero-bullet-dot"></span><div><strong>Model-matched agents</strong><span>Deep reasoning where it counts, fast execution everywhere else</span></div></div>
+          <div class="hero-bullet"><span class="hero-bullet-dot"></span><div><strong>Enforced code quality</strong><span>Adversarial critic loop catches issues before anything ships</span></div></div>
+          <div class="hero-bullet"><span class="hero-bullet-dot"></span><div><strong>Unattended execution</strong><span>Hand it a plan or task ticket and walk away</span></div></div>
+          <div class="hero-bullet"><span class="hero-bullet-dot"></span><div><strong>Single-shot delivery</strong><span>Working, reviewed, tested, and documented code in one run</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Console Teaser -->
+    <section class="console-section">
+      <div class="page">
+          <p class="hero-intro">12 specialized AI agents. One command. Claude Agent Flow orchestrates planning, building, reviewing, and pushing to production code using Claude Code.</p>
+        <div class="console-teaser" aria-label="Live console demo">
+          <div class="console-title-bar">
+            <div class="console-dots">
+              <span class="cdot red"></span>
+              <span class="cdot amber"></span>
+              <span class="cdot green"></span>
+            </div>
+            <span class="console-label">agent-flow — build session</span>
+          </div>
+          <div class="console-lines" id="consoleLinesHome">
+            <div class="cline" data-i="0"><span class="badge orchestrator">ORCHESTRATOR</span><span class="ctext">Received brief: <code>/build @plans/demo.md</code></span></div>
+            <div class="cline" data-i="1"><span class="badge explorer">EXPLORER</span><span class="ctext">Scanning codebase — mapping <code>docs/</code>, <code>.claude/agents/</code>, patterns…</span></div>
+            <div class="cline" data-i="2"><span class="badge architect">ARCHITECT</span><span class="ctext">Design complete. Single-file with embedded JS — no deps.</span></div>
+            <div class="cline" data-i="3"><span class="badge builder">BUILDER</span><span class="ctext">Writing <code>visualiser.html</code> — console, flow diagram, controls…</span></div>
+            <div class="cline" data-i="4"><span class="badge critic">CRITIC</span><span class="ctext">Reviewing… <strong class="pass">PASS</strong> — engine correct, layout verified.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pipelines -->
+    <section class="pipelines-section">
+      <div class="page">
+        <h2 class="section-heading">Pipelines</h2>
+        <div class="pipeline-grid" id="pipeline-grid">
+
+          <!-- /plan column -->
+          <div class="pipeline-col" id="col-plan">
+            <div class="col-header"><a href="plan-pipeline.html">/plan</a></div>
+            <div class="nodes">
+              <div class="node-wrapper">
+                <a class="node-card-link" href="plan-pipeline.html">
+                <div class="node-card" style="--i:0">
+                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Ideator</span><span class="node-card-model opus">Opus</span></div>
+                  <p class="node-card-desc">Explores solution space and stress-tests approaches; output goes to the human, never builders.</p>
+                  <div class="cap-tags"><span class="cap-tag">🧠 Brainstorming Skill</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="plan-pipeline.html">
+                <div class="node-card" style="--i:1">
+                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Architect</span><span class="node-card-model opus">Opus</span></div>
+                  <p class="node-card-desc">File-level design decisions and implementation plans before any code is written.</p>
+                  <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="plan-pipeline.html">
+                <div class="node-card" style="--i:2">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Researcher</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">Live documentation lookup, library comparison, and current best practices.</p>
+                  <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="plan-pipeline.html">
+                <div class="node-card" style="--i:3">
+                  <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
+                  <p class="node-card-desc">Writes the plan document and backlog task for /build to consume.</p>
+                </div></a>
+              </div>
+            </div>
+            <a href="plan-pipeline.html" class="deep-dive-link">Deep dive &rarr;</a>
+          </div>
+
+          <!-- /build column -->
+          <div class="pipeline-col build-col" id="col-build">
+            <div class="col-header"><a href="build-pipeline.html">/build</a></div>
+            <div class="nodes">
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:0">
+                  <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Explorer</span><span class="node-card-model haiku">Haiku</span></div>
+                  <p class="node-card-desc">Fast, read-only codebase mapping of files, dependencies, and patterns.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:1">
+                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Architect</span><span class="node-card-model opus">Opus</span></div>
+                  <p class="node-card-desc">Design authority. File-level plans and trade-off decisions before implementation.</p>
+                  <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:2">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Storage</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">Schema, migrations, RLS policies, and all data persistence concerns.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:3">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Frontend</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">React, TypeScript, Tailwind, browser APIs, and client-side state.</p>
+                  <div class="cap-tags"><span class="cap-tag">🎨 Frontend Design Skill</span><span class="cap-tag">🌐 Playwright</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:4">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Backend</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">API routes, business logic, auth, and all server-side concerns.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <!-- Adversarial Loop -->
+              <div class="node-wrapper" style="width:100%">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="adv-loop" style="--i:5; width:100%">
+                  <div class="adv-header">Adversarial Loop (up to 3×)</div>
+                  <div class="adv-inner">
+                    <div class="node-card" style="opacity:1;transform:none">
+                      <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Critic evaluates</span><span class="node-card-model opus">Opus</span></div>
+                      <p class="node-card-desc">Actively tries to break code with edge cases; PASS or FAIL only.</p>
+                      <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                    </div>
+                    <div class="branch-row">
+                      <span class="fail-label">FAIL</span>
+                      <svg class="adv-arrows" viewBox="0 0 180 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path class="loop-arrow" d="M 90 4 C 160 4 170 44 90 44" stroke="#ff3b30" marker-end="url(#arrowFail)"/>
+                        <defs><marker id="arrowFail" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ff3b30"/></marker></defs>
+                      </svg>
+                    </div>
+                    <div class="node-card" style="opacity:1;transform:none">
+                      <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Builder fixes</span><span class="node-card-model sonnet">Sonnet</span></div>
+                      <p class="node-card-desc">Addresses FAIL findings and resubmits for re-evaluation.</p>
+                    </div>
+                    <div class="branch-row">
+                      <span class="pass-label">PASS</span>
+                      <svg class="adv-arrows" viewBox="0 0 180 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path class="arrow-path" d="M 90 4 L 90 40" stroke="#28a745"/>
+                        <path d="M 82 34 L 90 44 L 98 34" fill="none" stroke="#28a745" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:6">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Tester</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">Writes and runs tests; never marks a task done if tests are red.</p>
+                  <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:7">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Reviewer</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">Structured BLOCKER / WARNING / SUGGESTION findings. Read-only.</p>
+                  <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="build-pipeline.html">
+                <div class="node-card" style="--i:8">
+                  <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
+                  <p class="node-card-desc">Updates README, docstrings, and CHANGELOG after reviewer sign-off.</p>
+                </div></a>
+              </div>
+            </div>
+            <a href="build-pipeline.html" class="deep-dive-link">Deep dive &rarr;</a>
+          </div>
+
+          <!-- /review column -->
+          <div class="pipeline-col" id="col-review">
+            <div class="col-header"><a href="review-pipeline.html">/review</a></div>
+            <div class="nodes">
+              <div class="node-wrapper">
+                <a class="node-card-link" href="review-pipeline.html">
+                <div class="node-card" style="--i:0">
+                  <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Explorer</span><span class="node-card-model haiku">Haiku</span></div>
+                  <p class="node-card-desc">Fast, read-only codebase mapping before review begins.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="review-pipeline.html">
+                <div class="node-card" style="--i:1">
+                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Critic</span><span class="node-card-model opus">Opus</span></div>
+                  <p class="node-card-desc">Actively tries to break code with edge cases; PASS or FAIL only.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <!-- Adversarial Loop -->
+              <div class="node-wrapper" style="width:100%">
+                <a class="node-card-link" href="review-pipeline.html">
+                <div class="adv-loop" style="--i:2; width:100%">
+                  <div class="adv-header">Adversarial Loop</div>
+                  <div class="adv-inner">
+                    <div class="node-card" style="opacity:1;transform:none">
+                      <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Critic evaluates</span><span class="node-card-model opus">Opus</span></div>
+                      <p class="node-card-desc">Actively tries to break code with edge cases; PASS or FAIL only.</p>
+                      <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                    </div>
+                    <div class="branch-row">
+                      <span class="fail-label">FAIL</span>
+                      <svg class="adv-arrows" viewBox="0 0 180 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path class="loop-arrow" d="M 90 4 C 155 4 160 32 90 32" stroke="#ff3b30" marker-end="url(#arrowFail2)"/>
+                        <defs><marker id="arrowFail2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ff3b30"/></marker></defs>
+                      </svg>
+                    </div>
+                    <div class="node-card" style="opacity:1;transform:none">
+                      <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Builder fixes</span><span class="node-card-model sonnet">Sonnet</span></div>
+                      <p class="node-card-desc">Addresses FAIL findings and resubmits for re-evaluation.</p>
+                    </div>
+                    <div class="branch-row">
+                      <span class="pass-label">PASS</span>
+                      <svg class="adv-arrows" viewBox="0 0 180 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path class="arrow-path" d="M 90 4 L 90 30" stroke="#28a745"/>
+                        <path d="M 83 24 L 90 34 L 97 24" fill="none" stroke="#28a745" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="review-pipeline.html">
+                <div class="node-card" style="--i:3">
+                  <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Reviewer</span><span class="node-card-model sonnet">Sonnet</span></div>
+                  <p class="node-card-desc">Structured BLOCKER / WARNING / SUGGESTION findings. Read-only.</p>
+                </div></a>
+              </div>
+              <div class="node-wrapper"><div class="connector"></div></div>
+              <div class="node-wrapper">
+                <a class="node-card-link" href="review-pipeline.html">
+                <div class="node-card" style="--i:4">
+                  <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
+                  <p class="node-card-desc">Updates README, docstrings, and CHANGELOG after sign-off.</p>
+                </div></a>
+              </div>
+            </div>
+            <a href="review-pipeline.html" class="deep-dive-link">Deep dive &rarr;</a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Agent Roster -->
+    <section class="roster-section" aria-labelledby="heading-roster">
+      <div class="page">
+        <h2 class="section-heading" id="heading-roster">Agent Roster</h2>
+        <div class="roster-grid" id="roster-grid">
+
+          <div class="agent-card" style="--i:0">
+            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Orchestrator</span></div>
+            <span class="pill opus">Opus</span>
+            <p class="card-desc">Master coordinator. Breaks work into subtasks and delegates to specialists; never writes code itself.</p>
+          </div>
+
+          <div class="agent-card" style="--i:1">
+            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Ideator</span></div>
+            <span class="pill opus">Opus</span>
+            <p class="card-desc">Lateral thinker. Explores solution space and stress-tests approaches; output goes to the human, never directly to builders.</p>
+            <div class="cap-tags"><span class="cap-tag">🧠 Brainstorming Skill</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:2">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Researcher</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">Research specialist. Finds current documentation, compares libraries, and surfaces best practices online.</p>
+            <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:3">
+            <div class="card-top"><span class="card-dot dot-haiku"></span><span class="card-name">Explorer</span></div>
+            <span class="pill haiku">Haiku</span>
+            <p class="card-desc">Codebase navigator. Fast, cheap mapping of files, dependencies, and patterns before any task begins.</p>
+          </div>
+
+          <div class="agent-card" style="--i:4">
+            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Architect</span></div>
+            <span class="pill opus">Opus</span>
+            <p class="card-desc">Design authority. Produces written design decisions and file-level plans before any implementation begins.</p>
+            <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:5">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Storage</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">Data persistence specialist. Sole owner of RLS policies; covers Postgres, Supabase, S3, and local filesystem.</p>
+          </div>
+
+          <div class="agent-card" style="--i:6">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Frontend</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">UI specialist. Owns React, TypeScript, Tailwind, browser APIs, accessibility, and client-side state.</p>
+            <div class="cap-tags"><span class="cap-tag">🎨 Frontend Design Skill</span><span class="cap-tag">🌐 Playwright</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:7">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Backend</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">Server specialist. Owns API routes, business logic, database queries, auth, and all server-side concerns.</p>
+          </div>
+
+          <div class="agent-card" style="--i:8">
+            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Critic</span></div>
+            <span class="pill opus">Opus</span>
+            <p class="card-desc">Adversarial reviewer. Actively tries to break code with edge cases; returns FAIL with specifics or PASS when solid.</p>
+            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:9">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Tester</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">Test specialist. Writes and runs tests; never marks a task done if tests are red.</p>
+            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:10">
+            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Reviewer</span></div>
+            <span class="pill sonnet">Sonnet</span>
+            <p class="card-desc">Standards checker. Read-only code review returning structured BLOCKER / WARNING / SUGGESTION findings.</p>
+            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+          </div>
+
+          <div class="agent-card" style="--i:11">
+            <div class="card-top"><span class="card-dot dot-haiku"></span><span class="card-name">Author</span></div>
+            <span class="pill haiku">Haiku</span>
+            <p class="card-desc">Documentation specialist. Updates README, docstrings, CHANGELOG after reviewer sign-off.</p>
+          </div>
+
+        </div>
+        <div class="tier-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--opus)"></span>Opus · Deep reasoning</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Sonnet · Balanced</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--haiku)"></span>Haiku · Fast &amp; efficient</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Building Blocks -->
+    <section class="blocks-section">
+      <div class="page">
+        <div class="section-header">
+          <h2 class="section-title">What's inside — Three building blocks</h2>
+        </div>
+        <div class="blocks-grid">
+          <div class="block-card">
+            <div class="block-icon">⌨</div>
+            <h3 class="block-title">Commands</h3>
+            <p class="block-desc">Slash commands like <code>/build</code>, <code>/plan</code>, <code>/review</code> orchestrate the full pipeline — type one word to trigger a complete workflow</p>
+          </div>
+          <div class="block-card">
+            <div class="block-icon">🤖</div>
+            <h3 class="block-title">Agents</h3>
+            <p class="block-desc">Specialised AI agents, each with a focused role: Architect designs, Builder builds, Critic challenges, Reviewer approves</p>
+          </div>
+          <div class="block-card">
+            <div class="block-icon">✨</div>
+            <h3 class="block-title">Skills</h3>
+            <p class="block-desc">Reusable skill modules injected into agent briefs — design systems, testing frameworks, domain knowledge</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Project Structure -->
+    <section class="structure-section">
+      <div class="page">
+        <div class="section-header">
+          <h2 class="section-title">Project structure</h2>
+        </div>
+        <div class="structure-card">
+          <pre class="structure-code">agent-team/
+├── .github/
+│   └── workflows/
+│       ├── agent-flow-backlog-notify.yml   <span class="tier-haiku">← backlog notifications</span>
+│       └── agent-flow-review-pr.yml        <span class="tier-haiku">← AI PR review</span>
+├── .claude/
+│   ├── agents/          <span class="tier-opus">← 12 agents</span>
+│   ├── commands/        <span class="tier-sonnet">← /build, /plan, /review…</span>
+│   └── skills/          <span class="tier-haiku">← skill modules</span>
+└── .claude-agent-flow/
+    ├── hooks/           <span class="tier-sonnet">← git & session hooks</span>
+    ├── scripts/         <span class="tier-sonnet">← install & sync scripts</span>
+    └── tests/           <span class="tier-haiku">← BATS test suite</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- What's Bundled -->
+    <section class="bundled-section">
+      <div class="page">
+        <div class="section-header">
+          <h2 class="section-title">What's bundled</h2>
+        </div>
+        <table class="bundled-table">
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Purpose</th>
+              <th>Why it's there</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Backlog.md CLI</td>
+              <td>Task & backlog management</td>
+              <td>Native task tracking integrated into pipeline</td>
+            </tr>
+            <tr>
+              <td>BATS</td>
+              <td>Shell test framework</td>
+              <td>Validates pipeline structure and file integrity</td>
+            </tr>
+            <tr>
+              <td>Playwright CLI</td>
+              <td>Browser automation</td>
+              <td>Visual regression and page verification</td>
+            </tr>
+            <tr>
+              <td>Mergiraf</td>
+              <td>Merge driver</td>
+              <td>Semantic merge conflict resolution</td>
+            </tr>
+            <tr>
+              <td>ShellCheck</td>
+              <td>Shell script linter</td>
+              <td>Keeps hook scripts clean</td>
+            </tr>
+            <tr>
+              <td>rsync</td>
+              <td>File sync</td>
+              <td>Plugin and skill sync operations</td>
+            </tr>
+            <tr>
+              <td>GNU parallel</td>
+              <td>Parallel execution</td>
+              <td>Speeds up test runs</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Disclaimer -->
+    <section class="disclaimer-section">
+      <div class="page">
+        <div class="callout-box callout-purple">
+          <span class="callout-icon">⚡</span>
+          <div>
+            <strong>Early version — under active development.</strong> Agent behaviour, commands, and pipeline steps may change as the system evolves. The site reflects the current state of the main branch.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Console teaser animation loop
+    (function() {
+      const lines = document.querySelectorAll('#consoleLinesHome .cline');
+      function runCycle() {
+        lines.forEach((l, i) => {
+          l.classList.remove('playing');
+          l.style.opacity = '0';
+          l.style.transform = 'translateY(6px)';
+          l.style.animationDelay = '';
+        });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            lines.forEach((l, i) => {
+              l.style.animationDelay = (i * 1000) + 'ms';
+              l.classList.add('playing');
+            });
+            setTimeout(runCycle, 11000);
+          });
+        });
+      }
+      runCycle();
+    })();
+
+    // Animate pipeline cols on scroll
+    const pipelineCols = document.querySelectorAll('.pipeline-col');
+    const rosterCards = document.querySelectorAll('.agent-card');
+    const obs2 = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs2.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    pipelineCols.forEach(c => obs2.observe(c));
+    rosterCards.forEach(c => obs2.observe(c));
+  </script>
+
+</body>
+</html>

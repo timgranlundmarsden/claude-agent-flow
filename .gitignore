@@ -1,0 +1,24 @@
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Environment
+.env
+
+# --- Agent Flow (managed) ---
+.claude/settings.local.json
+.playwright-cli/
+.scratch/screenshots/
+.claude-agent-flow/bin/mergiraf
+.superpowers/brainstorm/
+# Session-start log (diagnostic, not committed)
+.claude/session-start.log
+# --- End Agent Flow ---
+
+.claude-agent-flow/tests/__pycache__/
+
+# Claude Code local settings (plugin repo)
+.claude/

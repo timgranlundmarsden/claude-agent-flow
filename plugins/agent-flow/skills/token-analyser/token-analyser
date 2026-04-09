@@ -1,0 +1,730 @@
+#!/usr/bin/env python3
+"""
+token-analyser CLI — wraps parse-logs.py and renders formatted Markdown output.
+
+Usage:
+  token-analyser [--today|--24h|--week|--session UUID]
+                 [--project-path PATH]
+                 [--report [OUTPUT_PATH]]
+                 [--write-guidelines]
+                 [--json]
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+_SKILL_DIR = Path(__file__).parent
+_PARSE_LOGS = _SKILL_DIR / "parse-logs.py"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Formatting helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+def fmt_tokens(n: int) -> str:
+    """Format token count: 123, 123k, 1.1M"""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n // 1_000}k"
+    return str(n)
+
+
+def fmt_cost(v: float) -> str:
+    return f"{v:.2f}"
+
+
+def health_icon(health: str) -> str:
+    return {"critical": "🔴 CRITICAL", "warning": "⚠️ WARNING", "ok": "✅ OK"}.get(health, health)
+
+
+def session_health_icon(session_id_8: str, top_issues: list) -> str:
+    for issue in top_issues:
+        if issue.get("session", "").startswith(session_id_8[:8]):
+            return "🔴"
+    return "✅"
+
+
+def bar(cost: float, max_cost: float, width: int = 20) -> str:
+    if max_cost <= 0:
+        return ""
+    filled = round((cost / max_cost) * width)
+    return "█" * filled
+
+
+def short_model(model_id: str) -> str:
+    """Convert internal model ID to short display name."""
+    mapping = {
+        "anthropic_claude_sonnet_4_6": "claude-sonnet-4-6",
+        "anthropic_claude_opus_4_6": "claude-opus-4-6",
+        "anthropic_claude_haiku_4_5": "claude-haiku-4-5",
+        "anthropic_claude_haiku_4_5_20251001": "claude-haiku-4-5",
+        "anthropic_claude_sonnet_4_5": "claude-sonnet-4-5",
+        "claude-sonnet-4-6": "claude-sonnet-4-6",
+        "claude-opus-4-6": "claude-opus-4-6",
+        "claude-haiku-4-5": "claude-haiku-4-5",
+    }
+    return mapping.get(model_id, model_id.split("_")[-1] if "_" in model_id else model_id)
+
+
+def truncate_reason(reason: str, maxlen: int = 35) -> str:
+    """Take text before first em-dash, truncate to maxlen."""
+    # Split on em-dash (—) or " - "
+    for sep in [" — ", " - ", "—"]:
+        if sep in reason:
+            reason = reason.split(sep)[0].strip()
+            break
+    return reason[:maxlen] if len(reason) > maxlen else reason
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Narrative + issues
+# ──────────────────────────────────────────────────────────────────────────────
+
+def generate_narrative(session: dict) -> str:
+    ratio = session.get("ratio", 0)
+    calls = session.get("api_calls", 0)
+    sa_calls = session.get("subagent_calls", 0)
+    duration = session.get("duration_min", 0)
+    cost = session.get("est_cost_usd", 0.0)
+
+    if sa_calls >= 20 and ratio >= 30:
+        pattern = "subagent runaway"
+        detail = (
+            f"A subagent made {sa_calls} calls, multiplying cost. "
+            "Constraining subagents to a single read + write would have cut this sharply."
+        )
+    elif ratio >= 50 and calls >= 20:
+        pattern = "context ballooning across many tool calls"
+        detail = (
+            f"Claude re-read a large accumulated context on every one of the {calls} calls. "
+            "Starting a fresh session per sub-task would cut this by ~80%."
+        )
+    elif duration <= 5 and cost >= 0.5:
+        pattern = "large pre-loaded context"
+        detail = "Most cost came from a large context loaded upfront, not work done in the session."
+    else:
+        pattern = "context accumulation"
+        detail = "Cost accumulated gradually across multiple tool calls."
+
+    id8 = session.get("id", "?")[:8]
+    total_calls = calls + sa_calls
+    return (
+        f"> **Worst session: {id8}** "
+        f"({fmt_cost(cost)} · {total_calls} calls · {ratio}:1 ratio)\n"
+        f"> {pattern.capitalize()}: {detail} "
+        f"You sent {ratio} tokens for every 1 token of output."
+    )
+
+
+_ISSUE_DESC = {
+    "high_ratio": (
+        "🔴 **high_ratio** ({n} session(s)) — Claude Code re-bills the full accumulated context on every API call. "
+        "As a session grows, each call costs more even if the task is small. "
+        "Fix: start a fresh session per independent task, or use chatbot for document generation."
+    ),
+    "rogue_subagent": (
+        "🔴 **rogue_subagent** ({n} session(s)) — A subagent ran far more tool calls than needed, multiplying cost. "
+        'Fix: always constrain subagents with "single Read, single Write, reply Done."'
+    ),
+    "context_explosion": (
+        "⚠️ **context_explosion** ({n} session(s)) — Context size jumped sharply at a specific call "
+        "(usually loading a large file). "
+        "Fix: load large files only when needed, not at session start."
+    ),
+    "no_cache": (
+        "ℹ️ **no_cache** ({n} session(s)) — No prompt cache hits detected for sessions with >5 calls. "
+        "Fix: structure repeated content at the start of the prompt to enable caching."
+    ),
+}
+
+_GUIDELINES = {
+    "rogue_subagent": """\
+## Token Efficiency: Subagent Instructions
+When dispatching a subagent to read/extract from files, always include:
+"Make all reads in a single tool call. Write output in a single Write call.
+Do not iterate. Reply only: Done."
+""",
+    "high_ratio": """\
+## Token Efficiency: Generation Tasks
+For tasks that read files and produce output documents, prefer chatbot
+(claude.ai) over Claude Code. Claude Code accumulates context across
+every tool call; chatbot does not.
+""",
+    "context_explosion": """\
+## Token Efficiency: Session Length
+Start a fresh session for each independent task rather than continuing
+long conversations. Context accumulated from prior tasks is billed on
+every subsequent API call.
+""",
+    "no_cache": """\
+## Token Efficiency: Prompt Caching
+For skills that repeatedly read the same large files, use prompt caching
+by structuring repeated content at the start of the prompt.
+""",
+}
+
+_MARKER = "<!-- token-analyser-guidelines -->"
+
+
+def format_issues_section(top_issues: list) -> str:
+    if not top_issues:
+        return ""
+    # Count per type
+    counts: dict[str, int] = {}
+    for issue in top_issues:
+        t = issue.get("type", "unknown")
+        counts[t] = counts.get(t, 0) + 1
+
+    lines = ["**ISSUES FOUND**", ""]
+    for t, n in counts.items():
+        tmpl = _ISSUE_DESC.get(t, f"**{t}** ({n} session(s))")
+        lines.append(tmpl.format(n=n))
+        lines.append("")
+    return "\n".join(lines)
+
+
+def write_guidelines(project_path: str, issue_types: list[str]) -> str:
+    """Append applicable guidelines to <project_path>/CLAUDE.md. Returns status message."""
+    if not issue_types:
+        return "No issues requiring guidelines."
+
+    claude_md = Path(project_path) / "CLAUDE.md"
+    existing = claude_md.read_text() if claude_md.exists() else ""
+
+    if _MARKER in existing:
+        return f"Guidelines already present in {claude_md} (marker found — skipping)."
+
+    applicable = [t for t in issue_types if t in _GUIDELINES]
+    if not applicable:
+        return "No guideline templates for the detected issue types."
+
+    sections = "\n\n".join(_GUIDELINES[t].strip() for t in applicable)
+    block = f"\n\n{_MARKER}\n\n{sections}\n"
+
+    with open(claude_md, "a") as f:
+        f.write(block)
+
+    return f"Guidelines written to {claude_md} ({', '.join(applicable)})."
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Per-call breakdown
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_call_breakdown(per_call: list[dict]) -> str:
+    if not per_call:
+        return ""
+
+    # Find the call with the largest cache_write spike for annotation
+    max_cw_idx = max(range(len(per_call)), key=lambda i: per_call[i].get("cache_write", 0))
+    max_cw = per_call[max_cw_idx].get("cache_write", 0)
+
+    lines = [
+        "**CALL BREAKDOWN**",
+        "",
+        "| # | Raw in | Cache write | Cache read | Context | Output | Note |",
+        "|---|--------|-------------|------------|---------|--------|------|",
+    ]
+    for i, c in enumerate(per_call, 1):
+        raw_in    = fmt_tokens(c.get("input", 0))
+        cw        = fmt_tokens(c.get("cache_write", 0))
+        cr        = fmt_tokens(c.get("cache_read", 0))
+        ctx       = fmt_tokens(c.get("context_size", 0))
+        out       = fmt_tokens(c.get("output", 0))
+        note = ""
+        if i - 1 == max_cw_idx and max_cw > 1000:
+            note = "← largest cache write"
+        lines.append(f"| {i} | {raw_in} | {cw} | {cr} | {ctx} | {out} | {note} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Per-model breakdown
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_model_breakdown(session: dict) -> str:
+    """Render a MODEL BREAKDOWN table showing per-model call counts, tokens, cost.
+    Includes a note on whether agent `model:` overrides are being respected."""
+    model_stats = session.get("model_stats", {})
+    if not model_stats:
+        return "_No model stats available._\n"
+
+    primary = session.get("model", "")
+    total_cost = session.get("est_cost_usd", 0.0)
+
+    # Compute cost per model
+    rows = []
+    for m, ms in sorted(model_stats.items(), key=lambda x: x[1]["calls"], reverse=True):
+        cost = calc_cost_for_model(m, ms["input"], ms["output"], ms["cache_read"], ms["cache_write"])
+        pct = round(cost / total_cost * 100) if total_cost > 0 else 0
+        rows.append({
+            "model": short_model(m),
+            "calls": ms["calls"],
+            "input": ms["input"] + ms["cache_write"],
+            "output": ms["output"],
+            "cost": cost,
+            "pct": pct,
+        })
+
+    lines = [
+        "**MODEL BREAKDOWN**",
+        "",
+        "| Model | Calls | Tokens in | Tokens out | Cost | % of total |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        lines.append(
+            f"| {r['model']} | {r['calls']} | {fmt_tokens(r['input'])} "
+            f"| {fmt_tokens(r['output'])} | {fmt_cost(r['cost'])} | {r['pct']}% |"
+        )
+    lines.append("")
+
+    # Agent override status note
+    distinct_models = set(model_stats.keys())
+    if len(distinct_models) == 1:
+        lines.append(
+            f"> ⚠️ **All calls used a single model ({short_model(next(iter(distinct_models)))}).** "
+            f"Agent definition `model:` overrides are **not** being applied — "
+            f"subagents inherit the parent session model regardless of their frontmatter."
+        )
+    else:
+        model_list = ", ".join(short_model(m) for m in sorted(distinct_models))
+        lines.append(
+            f"> ✅ **Multiple models detected ({model_list}).** "
+            f"Agent `model:` overrides appear to be working."
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def calc_cost_for_model(model_id: str, input_tok: int, output_tok: int,
+                        cache_read: int, cache_write: int) -> float:
+    """Thin wrapper used by render_model_breakdown (parse-logs not importable here)."""
+    from importlib.util import spec_from_file_location, module_from_spec
+    # Reuse calc_cost from parse-logs by delegating through the already-parsed JSON
+    # We just need pricing — replicate the calc_cost formula here for simplicity.
+    _pricing_file = _SKILL_DIR / "reference" / "model-pricing.json"
+    try:
+        with open(_pricing_file) as f:
+            pricing_data = json.load(f)
+        pricing = pricing_data["models"]
+        p = pricing.get(model_id) or pricing.get("anthropic_claude_sonnet_4_6")
+        rate_in = p["in"] / 1_000_000
+        rate_out = p["out"] / 1_000_000
+        rate_cr = (p.get("cache_read") or 0) / 1_000_000
+        rate_cw = (p.get("cache_write") or p["in"]) / 1_000_000
+        return (input_tok * rate_in + output_tok * rate_out
+                + cache_read * rate_cr + cache_write * rate_cw)
+    except Exception:
+        return 0.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Single-session dashboard
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_single_session(data: dict, breakdown: bool = False, models: bool = False) -> str:
+    sessions = data.get("sessions", [])
+    session = sessions[0] if sessions else {}
+    mode_label = "Current Session"
+    period = data.get("period", "")
+    health = data.get("health", "ok")
+    issues = data.get("top_issues", [])
+    savings = data.get("savings_comparison", [])
+
+    lines = []
+    lines.append(f"**TOKEN ANALYSIS** · {mode_label} · {period}")
+    lines.append("")
+
+    if not session:
+        lines.append("_No session data found._")
+        return "\n".join(lines)
+
+    model = short_model(session.get("model", ""))
+    api_calls = session.get("api_calls", 0)
+    sa_calls = session.get("subagent_calls", 0)
+    calls_str = f"{api_calls} main + {sa_calls} subagent" if sa_calls else str(api_calls)
+    duration = session.get("duration_min", 0)
+    input_tok = fmt_tokens(session.get("input_tokens", 0))
+    output_tok = fmt_tokens(session.get("output_tokens", 0))
+    cache_tok = fmt_tokens(session.get("cache_read_tokens", 0))
+    cost = fmt_cost(session.get("est_cost_usd", 0.0))
+
+    lines += [
+        "| | |",
+        "|---|---|",
+        f"| Model | {model} |",
+        f"| Health | {health_icon(health)} |",
+        f"| API Calls | {calls_str} |",
+        f"| Duration | {duration}m |",
+        f"| Input | {input_tok} · Output {output_tok} · Cache reads {cache_tok} |",
+        f"| Est. cost | **{cost}** |",
+        "",
+    ]
+
+    # Cost breakdown
+    cost_blocks = session.get("cost_blocks", [])
+    if cost_blocks:
+        max_cost = max(b.get("cost", 0) for b in cost_blocks) or 1
+        lines += [
+            "**COST BREAKDOWN**",
+            "",
+            "| Calls | Tokens in | Cost | Bar |",
+            "|---|---|---|---|",
+        ]
+        for b in sorted(cost_blocks, key=lambda x: x.get("cost", 0), reverse=True):
+            label = b.get("label", "")
+            calls_n = b.get("calls", 0)
+            tok_in = fmt_tokens(b.get("input", 0))
+            b_cost = fmt_cost(b.get("cost", 0))
+            b_bar = bar(b.get("cost", 0), max_cost)
+            # Subagent labels already include call count; only append for main session blocks
+            if b.get("is_subagent"):
+                display_label = label
+            else:
+                display_label = f"{label} ({calls_n}c)"
+            lines.append(f"| {display_label} | {tok_in} | {b_cost} | {b_bar} |")
+        lines.append("")
+
+    # Top issues
+    if issues:
+        lines += ["**TOP ISSUES**", ""]
+        for i, issue in enumerate(issues, 1):
+            sev = issue.get("severity", "info")
+            icon = "🔴" if sev == "critical" else ("⚠️" if sev == "warning" else "ℹ️")
+            sev_label = sev.upper()
+            itype = issue.get("type", "unknown")
+            if itype == "high_ratio":
+                val = issue.get("value", "?")
+                thr = issue.get("threshold", "?")
+                desc = f"Input:output ratio {val}:1 (target <{thr}:1)"
+            elif itype == "rogue_subagent":
+                c = issue.get("calls", "?")
+                desc = f"Subagent ran {c} calls"
+            elif itype == "context_explosion":
+                pct = issue.get("pct", "?")
+                at = issue.get("at_call", "?")
+                desc = f"Context jumped {pct}% at call {at}"
+            elif itype == "no_cache":
+                desc = "No prompt cache hits"
+            else:
+                desc = itype
+            lines.append(f"{i}. {icon} **[{sev_label}]** {desc}")
+        lines.append("")
+
+    # Per-call breakdown
+    if breakdown:
+        per_call = session.get("per_call", [])
+        bd = render_call_breakdown(per_call)
+        if bd:
+            lines.append(bd)
+
+    # Model breakdown
+    if models:
+        lines.append(render_model_breakdown(session))
+
+    # Savings comparison
+    if savings:
+        lines += [
+            "**IF YOU'D USED A CHEAPER MODEL**",
+            "",
+            "| Model | Est. cost | Saving | Best for |",
+            "|---|---|---|---|",
+        ]
+        for s in savings[:4]:
+            m = s.get("model", "")
+            ec = fmt_cost(s.get("est_cost", 0))
+            sv = s.get("saving_pct", 0)
+            note = s.get("note", "")
+            lines.append(f"| {m} | {ec} | -{sv}% | {note} |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Multi-session dashboard (today / 24h / week)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_multi_session(data: dict) -> str:
+    mode = data.get("mode", "today")
+    mode_label = {"today": "Today", "24h": "Last 24h", "week": "Last 7 Days"}.get(mode, mode)
+    period = data.get("period", "")
+    sessions = [s for s in data.get("sessions", []) if s.get("api_calls", 0) > 0]
+    totals = data.get("totals", {})
+    top_issues = data.get("top_issues", [])
+
+    lines = []
+    lines.append(f"**TOKEN ANALYSIS** · {mode_label} · {period}")
+    lines.append("")
+
+    if not sessions:
+        lines.append("_No sessions with API calls found for this period._")
+        return "\n".join(lines)
+
+    # Session table
+    lines += [
+        "| Session | Start | Dur | In/Out | Calls | Cost | Ratio | Health | Model | Alt | Alt Cost | Save | Reason |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+
+    for s in sessions:
+        sid = s.get("id", "?")[:8]
+        start = s.get("start_local", "")
+        dur = f"{s.get('duration_min', 0)}m"
+        tok_in = fmt_tokens(s.get("input_tokens", 0))
+        tok_out = fmt_tokens(s.get("output_tokens", 0))
+        in_out = f"{tok_in}/{tok_out}"
+        api = s.get("api_calls", 0)
+        sa = s.get("subagent_calls", 0)
+        calls_str = f"{api}+{sa}"
+        cost = fmt_cost(s.get("est_cost_usd", 0.0))
+        ratio = s.get("ratio", 0)
+        h = session_health_icon(sid, top_issues)
+        model = short_model(s.get("model", ""))
+        rec = s.get("recommendation", {})
+        alt = rec.get("model", "")
+        alt_cost = fmt_cost(rec.get("est_cost", 0.0))
+        save = f"-{rec.get('saving_pct', 0)}%"
+        reason = truncate_reason(rec.get("reason", ""))
+        lines.append(
+            f"| {sid} | {start} | {dur} | {in_out} | {calls_str} | "
+            f"{cost} | {ratio}:1 | {h} | {model} | {alt} | {alt_cost} | {save} | {reason} |"
+        )
+
+    # Totals row
+    t_dur = f"**{totals.get('duration_min', 0)}m**"
+    t_in = fmt_tokens(totals.get("input_tokens", 0))
+    t_out = fmt_tokens(totals.get("output_tokens", 0))
+    t_calls = totals.get("api_calls", 0)
+    t_cost = fmt_cost(totals.get("est_cost_usd", 0.0))
+    t_alt = fmt_cost(totals.get("alt_cost_usd", 0.0))
+    lines.append(
+        f"| **Total** | | {t_dur} | **{t_in}/{t_out}** | **{t_calls}** | "
+        f"**{t_cost}** | | | | | **{t_alt}** | | |"
+    )
+    lines.append("")
+
+    # Worst session narrative
+    if sessions:
+        worst = max(sessions, key=lambda s: s.get("est_cost_usd", 0))
+        lines += [generate_narrative(worst), ""]
+
+    # Issues
+    issues_section = format_issues_section(top_issues)
+    if issues_section:
+        lines += [issues_section]
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Footer
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_footer(top_issues: list) -> str:
+    issue_types = list({i.get("type") for i in top_issues if i.get("type")})
+    lines = [
+        "---",
+        "**Next steps:** Ask me anything about these numbers — I can drill into any session, explain a pattern, or compare two sessions.",
+    ]
+    if issue_types:
+        lines.append(
+            f"To write token-efficiency guidelines to your CLAUDE.md: re-run with `--write-guidelines`"
+        )
+    lines.append("To save a full Markdown report: re-run with `--report`")
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Full report (--report)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_full_report(data: dict) -> str:
+    """Full report Markdown — superset of the inline dashboard."""
+    mode = data.get("mode", "session")
+    period = data.get("period", "")
+    totals = data.get("totals", {})
+    sessions = [s for s in data.get("sessions", []) if s.get("api_calls", 0) > 0]
+    top_issues = data.get("top_issues", [])
+    savings = data.get("savings_comparison", [])
+    health = data.get("health", "ok")
+
+    lines = [
+        f"# Token Analyser Report",
+        f"",
+        f"**Period:** {period}  ",
+        f"**Mode:** {mode}  ",
+        f"**Health:** {health_icon(health)}  ",
+        f"**Total cost:** {fmt_cost(totals.get('est_cost_usd', 0))}  ",
+        f"**Total calls:** {totals.get('api_calls', 0)}  ",
+        f"**Duration:** {totals.get('duration_min', 0)}m",
+        "",
+        "---",
+        "",
+    ]
+
+    # Inline dashboard
+    if mode == "session":
+        lines.append(render_single_session(data))
+    else:
+        lines.append(render_multi_session(data))
+
+    # Savings table (for reports, always include)
+    if savings:
+        lines += [
+            "",
+            "## Savings Comparison",
+            "",
+            "| Model | Est. cost | Saving | Best for |",
+            "|---|---|---|---|",
+        ]
+        for s in savings:
+            lines.append(
+                f"| {s.get('model','')} | {fmt_cost(s.get('est_cost',0))} "
+                f"| -{s.get('saving_pct',0)}% | {s.get('note','')} |"
+            )
+
+    # Self-heal recommendations
+    if top_issues:
+        issue_types = list({i.get("type") for i in top_issues})
+        applicable = [t for t in issue_types if t in _GUIDELINES]
+        if applicable:
+            lines += [
+                "",
+                "## Self-Heal Recommendations",
+                "",
+                "Add the following sections to your `CLAUDE.md` to prevent these issues:",
+                "",
+            ]
+            for t in applicable:
+                lines.append(f"```markdown\n{_GUIDELINES[t].strip()}\n```")
+                lines.append("")
+
+    return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Main
+# ──────────────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Token Analyser — formats Claude Code session token data as a Markdown dashboard."
+    )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument("--today", action="store_true", help="Sessions from today (calendar day)")
+    mode_group.add_argument("--24h", dest="h24", action="store_true", help="Sessions from last 24 hours")
+    mode_group.add_argument("--week", action="store_true", help="Sessions from last 7 days")
+    mode_group.add_argument("--session", metavar="UUID", help="Specific session by UUID")
+
+    parser.add_argument(
+        "--project-path",
+        default=os.environ.get("PWD", os.getcwd()),
+        help="Project directory (default: $PWD)",
+    )
+    parser.add_argument(
+        "--report",
+        nargs="?",
+        const="auto",
+        metavar="OUTPUT_PATH",
+        help="Save full report to file (default: .claude/reports/token-analyser-TIMESTAMP.md)",
+    )
+    parser.add_argument(
+        "--write-guidelines",
+        action="store_true",
+        help="Append token-efficiency guidelines to <project-path>/CLAUDE.md",
+    )
+    parser.add_argument("--json", action="store_true", help="Output raw JSON from parse-logs.py")
+    parser.add_argument("--breakdown", action="store_true", help="Show per-call token breakdown (raw input, cache write, cache read, output)")
+    parser.add_argument("--models", action="store_true", help="Show per-model usage breakdown — answers 'did agents use different models?'")
+    args = parser.parse_args()
+
+    # Build parse-logs.py command
+    cmd = [sys.executable, str(_PARSE_LOGS), "--project-path", args.project_path]
+    if args.h24:
+        cmd.append("--24h")
+    elif args.today:
+        cmd.append("--today")
+    elif args.week:
+        cmd.append("--week")
+    elif args.session:
+        cmd.extend(["--session", args.session])
+    else:
+        # Default: current session via $CLAUDE_SESSION_ID
+        session_id = os.environ.get("CLAUDE_SESSION_ID")
+        if session_id:
+            cmd.extend(["--session", session_id])
+
+    # Run parse-logs.py
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError:
+        print(f"ERROR: parse-logs.py not found at {_PARSE_LOGS}", file=sys.stderr)
+        sys.exit(1)
+
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        sys.exit(result.returncode)
+
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
+    # JSON passthrough
+    if args.json:
+        print(result.stdout)
+        return
+
+    # Parse JSON
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: failed to parse parse-logs.py output: {e}", file=sys.stderr)
+        print(result.stdout, file=sys.stderr)
+        sys.exit(1)
+
+    # Write guidelines
+    if args.write_guidelines:
+        issue_types = list({i.get("type") for i in data.get("top_issues", [])})
+        msg = write_guidelines(args.project_path, issue_types)
+        print(f"[token-analyser] {msg}", file=sys.stderr)
+
+    # Render output
+    mode = data.get("mode", "session")
+    if mode == "session":
+        body = render_single_session(data, breakdown=args.breakdown, models=args.models)
+    else:
+        body = render_multi_session(data)
+
+    footer = render_footer(data.get("top_issues", []))
+    output = body.rstrip() + "\n\n" + footer
+
+    # Report generation
+    if args.report is not None:
+        if args.report == "auto":
+            ts = datetime.now().strftime("%Y-%m-%d-%H-%M")
+            report_path = Path(args.project_path) / ".claude" / "reports" / f"token-analyser-{ts}.md"
+        else:
+            report_path = Path(args.report)
+
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        full_report = render_full_report(data)
+        report_path.write_text(full_report)
+        print(f"[token-analyser] Report saved to {report_path}", file=sys.stderr)
+
+        # Open on macOS
+        import platform
+        if platform.system() == "Darwin":
+            subprocess.run(["open", str(report_path)], check=False)
+
+    print(output)
+
+
+if __name__ == "__main__":
+    main()

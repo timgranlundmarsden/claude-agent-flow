@@ -1,0 +1,28 @@
+# External Review Bot — Repo Suppressions (repo-specific, NOT synced downstream)
+#
+# Use this file for concerns specific to THIS repo that don't apply to
+# all agent-flow repos. The shared file (.claude-agent-flow/external-review-config.yml)
+# is for agent-flow infrastructure concerns that sync to every repo.
+#
+# Format:
+#   suppress:
+#     - file: "path/to/file"       # Exact path or glob (e.g. "src/*.js")
+#       keyword: "word"            # Case-insensitive substring match on concern message
+#       reason: "Why suppressed"   # Shown in review body as [suppressed]
+#
+# Both file AND keyword must match for a concern to be suppressed.
+# Suppressed concerns still appear in the review (struck through) but
+# don't count toward the error threshold that blocks the PR.
+#
+# Example:
+#
+#   suppress:
+#     - file: "src/legacy/*.js"
+#       keyword: "deprecated API"
+#       reason: "Legacy code scheduled for removal in Q3"
+#
+#     - file: "scripts/seed-data.sh"
+#       keyword: "hardcoded credentials"
+#       reason: "Dev-only seed script, not used in production"
+
+suppress: []

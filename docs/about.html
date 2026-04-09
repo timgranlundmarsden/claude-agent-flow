@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Claude Agent Flow</title>
+  <meta name="description" content="How Claude Agent Flow works — the philosophy behind multi-agent AI orchestration for software engineering.">
+  <meta property="og:title" content="About — Claude Agent Flow">
+  <meta property="og:description" content="How Claude Agent Flow works — the philosophy behind multi-agent AI orchestration for software engineering.">
+  <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/about.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Agent Flow">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="About — Claude Agent Flow">
+  <meta name="twitter:description" content="How Claude Agent Flow works — the philosophy behind multi-agent AI orchestration for software engineering.">
+  <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+  <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/about.html">
+  <style>
+    /* ── CSS TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:             #fbfbfd;
+      --surface:        #ffffff;
+      --surface-alt:    #f5f5f7;
+      --border:         #e5e5ea;
+      --text:           #1d1d1f;
+      --text-secondary: #6e6e73;
+      --blue:           #0071e3;
+      --opus:           #7c3aed;
+      --haiku:          #28a745;
+      --fail:           #ff3b30;
+      --shadow:         0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      --font:           'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      --mono:           'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      10px;
+    }
+
+    /* ── RESET & BASE STYLES ─────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; font-family: var(--font);
+      background: var(--bg); color: var(--text);
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0,113,227,.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(124,58,237,.015) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+    .page {
+      max-width: 1180px; margin: 0 auto; padding: 0 24px;
+    }
+    @media (max-width: 768px) {
+      .page { padding: 0 20px; }
+    }
+
+    /* ── TOP NAV ─────────────────────────────────────────────── */
+    .top-nav {
+      position: sticky; top: 0;
+      background: rgba(251,251,253,0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-brand a {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+    }
+    .nav-brand a:hover { color: var(--blue); }
+    .nav-github-link {
+      color: var(--text-secondary); display: flex; align-items: center;
+      opacity: 0.55; transition: color 0.15s, opacity 0.15s;
+      text-decoration: none;
+    }
+    .nav-github-link:hover { color: var(--text); opacity: 1; }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto; font-size: 14px;
+    }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 12px; border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle {
+      color: var(--text-secondary); font-size: 14px;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+    .nav-dropdown-menu {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      min-width: 140px; padding: 6px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+      z-index: 200;
+    }
+    .nav-dropdown:hover .nav-dropdown-menu,
+    .nav-dropdown:focus-within .nav-dropdown-menu {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+    .nav-dropdown-menu a {
+      display: block; padding: 8px 12px; border-radius: 6px;
+      color: var(--text); text-decoration: none; font-size: 13px;
+      transition: background 0.15s;
+    }
+    .nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+    .nav-toggle-cb {
+      position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+    }
+    .burger-icon {
+      display: none; cursor: pointer;
+      width: 44px; height: 44px;
+      align-items: center; justify-content: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); box-shadow: var(--shadow);
+      flex-shrink: 0; margin-left: auto;
+    }
+    .burger-bar, .burger-bar::before, .burger-bar::after {
+      display: block; width: 20px; height: 2px;
+      background: var(--text); border-radius: 1px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .burger-bar { position: relative; }
+    .burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+    .burger-bar::before { top: -6px; }
+    .burger-bar::after  { top: 6px; }
+    .nav-toggle-cb:checked ~ header .burger-bar { background: transparent; }
+    .nav-toggle-cb:checked ~ header .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+    .nav-toggle-cb:checked ~ header .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+    .nav-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 999; opacity: 0; visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s; cursor: pointer;
+    }
+    .nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+    .nav-drawer {
+      position: fixed; top: 0; right: 0;
+      width: min(260px, 75vw); height: 100%;
+      background: var(--surface); border-left: 1px solid var(--border);
+      box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+      padding: 72px 20px 24px; overflow-y: auto; gap: 4px;
+    }
+    .nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+    .nav-drawer a {
+      display: flex; align-items: center; min-height: 44px;
+      padding: 10px 14px; font-size: 14px; color: var(--text);
+      text-decoration: none; border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .nav-drawer a:hover { background: rgba(0,113,227,.07); }
+    .nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+    .drawer-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 44px; height: 44px; display: flex; align-items: center;
+      justify-content: center; font-size: 24px; color: var(--text-secondary);
+      cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s;
+    }
+    .drawer-close:hover { background: rgba(0,0,0,.05); }
+    .drawer-reference-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-secondary);
+      padding: 12px 14px 4px;
+    }
+    .drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+    .drawer-reference a:hover { color: var(--blue); }
+    @media (max-width: 768px) {
+      .nav-links, .nav-dropdown { display: none !important; }
+      .burger-icon { display: flex !important; }
+    }
+    @media (min-width: 768.01px) {
+      .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; }
+    }
+
+    /* ── CONTENT SECTIONS ─────────────────────────────────────── */
+    .content-section {
+      padding: 40px 0;
+    }
+    .content-section:first-child { padding-top: 40px; }
+    .section-title {
+      font-size: clamp(28px, 5vw, 36px);
+      font-weight: 700; line-height: 1.2; margin: 0 0 24px;
+      color: var(--text); text-align: center;
+    }
+    .section-prose {
+      font-size: 17px; line-height: 1.6;
+      color: var(--text); max-width: 720px; margin: 0 auto;
+    }
+    .section-prose p {
+      margin: 0 0 20px;
+    }
+    .section-prose p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* ── HERO SECTION ─────────────────────────────────────────── */
+    .hero {
+      padding: 40px 0 48px; text-align: center;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface-alt) 100%);
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 0 0 20px;
+    }
+    .hero h1 {
+      font-family: var(--font); font-size: clamp(44px, 8vw, 72px);
+      font-weight: 700; line-height: 1.1; margin: 0 0 24px;
+      color: var(--text);
+    }
+    .subtitle {
+      font-size: clamp(18px, 3vw, 22px); line-height: 1.4;
+      color: var(--text-secondary); margin: 0 auto;
+      max-width: 720px;
+    }
+
+    /* ── SELF-IMPROVING LOOP SECTION ─────────────────────────── */
+    .loop-section {
+      padding: 40px 0;
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-alt) 100%);
+    }
+    .loop-flow {
+      display: flex; gap: 32px; align-items: center;
+      justify-content: center; margin: 32px 0;
+    }
+    .loop-step {
+      flex: 1; max-width: 280px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 24px;
+      box-shadow: var(--shadow); text-align: center;
+      position: relative;
+    }
+    .step-number {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--blue); color: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      margin: 0 auto 16px;
+    }
+    .step-title {
+      font-size: 18px; font-weight: 600; margin: 0 0 8px;
+      color: var(--text);
+    }
+    .step-description {
+      font-size: 14px; line-height: 1.4;
+      color: var(--text-secondary); margin: 0;
+    }
+    .loop-connector {
+      width: 24px; height: 2px; background: var(--border);
+      position: relative; flex-shrink: 0;
+    }
+    .loop-connector::after {
+      content: '→';
+      position: absolute; right: -8px; top: -8px;
+      color: var(--text-secondary); font-size: 16px;
+    }
+    .loop-note {
+      font-size: 15px; line-height: 1.5;
+      color: var(--text-secondary); text-align: center;
+      margin: 24px auto 0; max-width: 600px;
+    }
+    @media (max-width: 768px) {
+      .loop-flow {
+        flex-direction: column; gap: 16px;
+      }
+      .loop-connector {
+        width: 2px; height: 24px;
+        transform: rotate(90deg);
+      }
+      .loop-connector::after {
+        content: '↓';
+        right: -8px; top: -12px;
+      }
+    }
+
+    /* ── AUTHOR CARD SECTION ─────────────────────────────────── */
+    .author-section {
+      padding: 40px 0;
+      display: flex; justify-content: center;
+    }
+    .author-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px;
+      box-shadow: var(--shadow); text-align: center;
+      max-width: 480px; width: 100%;
+    }
+    .author-avatar {
+      width: 100px; height: 100px; border-radius: 50%;
+      object-fit: cover; filter: grayscale(100%);
+      border: 3px solid var(--border);
+      margin: 0 auto 20px; display: block;
+    }
+    .author-name {
+      font-size: 24px; font-weight: 700; margin: 0 0 16px;
+      color: var(--text);
+    }
+    .author-contact {
+      display: flex; gap: 16px; justify-content: center;
+      margin: 0 0 20px; flex-wrap: wrap;
+    }
+    .author-contact a {
+      color: var(--blue); text-decoration: none;
+      font-size: 15px; font-weight: 500;
+      padding: 8px 12px; border-radius: 8px;
+      background: rgba(0,113,227,.06);
+      transition: background 0.15s;
+    }
+    .author-contact a:hover {
+      background: rgba(0,113,227,.1);
+    }
+    .author-bio {
+      font-size: 15px; line-height: 1.5;
+      color: var(--text-secondary); margin: 0;
+    }
+
+    /* ── GITHUB REPO CARD ───────────────────────────────────── */
+    .repo-section { padding: 0 0 8px; }
+    .repo-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 24px 28px;
+      box-shadow: var(--shadow); max-width: 580px; width: 100%;
+      margin: 0 auto;
+      display: flex; align-items: center; gap: 20px;
+    }
+    .repo-icon { color: var(--text); flex-shrink: 0; opacity: 0.85; }
+    .repo-info { flex: 1; min-width: 0; }
+    .repo-name {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      margin: 0 0 5px; font-family: var(--mono);
+    }
+    .repo-desc { font-size: 13px; color: var(--text-secondary); margin: 0; }
+    .repo-link {
+      font-size: 14px; font-weight: 600; color: var(--blue);
+      text-decoration: none; white-space: nowrap;
+      display: flex; align-items: center; gap: 4px;
+      flex-shrink: 0; transition: gap 0.15s;
+    }
+    .repo-link:hover { gap: 6px; }
+    @media (max-width: 600px) {
+      .repo-card { flex-direction: column; text-align: center; gap: 16px; }
+      .repo-link { justify-content: center; }
+    }
+
+    /* ── FOOTER ─────────────────────────────────────────────── */
+    .footer {
+      padding: 40px 0;
+      text-align: center; font-size: 14px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .footer a {
+      color: var(--blue); text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .content-section { padding: 30px 0; }
+      .hero { padding: 30px 0 36px; }
+      .author-card { padding: 24px; }
+      .author-contact { flex-direction: column; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html" class="nav-active" aria-current="page">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html" class="nav-active" aria-current="page">About</a>
+  </nav>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="page">
+        <div class="eyebrow">ABOUT</div>
+        <h1>Claude Agent Flow</h1>
+        <p class="subtitle">A self-improving multi-agent system for software engineering</p>
+      </div>
+    </section>
+
+    <!-- Origin Story Section -->
+    <section class="content-section">
+      <div class="page">
+        <h2 class="section-title">How it started</h2>
+        <div class="section-prose">
+          <p>I started this project because if I am honest I was a bit disappointed with the current crop of AI tooling. As amazing as their results often are, when the model says "I am done", it was always far from done. Maybe you asked for a mobile friendly web page and it turned out that the result wasnt in fact mobile friendly. Or maybe you asked it to fix some code and then on running the tests, you saw that it had made introduced another bug. Either way I was spending too much time hand holding and guiding the models.</p>
+        <p>I am a big Claude Code user and it supports so many great things so I thought why don't I try and build a workflow that would help me formulate my idea, research it for me, sanity check it and then build it for me all without my intervention. Obviously I would need to discuss with the AI what I wanted but once we had a good plan, I wanted my work to be turned into a "ticket" and then have the AI build it for me and not come back to me until it was "Done Done"!</p>
+        <p>But the big part was once it thought it was done, it would need to get the approval of multiple separate AI agents that would be very thorough and check it's work. "Works on mobile?", then prove it with screenshots! "Code looks good", then lets run all the tests. If anything breaks, send it back to the agent that did the work for correction. Only when the entire flow if complete and every agent is satisfied, is the job "Ready for Review"</p>
+          <p>Today it's 12 specialised agents, a skill library, and a full CI/CD integration — built entirely by running itself. What began as a simple automation became a full on factory line capable of solving multiple tickets at once. When you couple it with Claude Code for Web you can literally have AI build your ideas whilst you are out and about. It gets rather addictive :-)</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Self-Improving Loop Section -->
+    <section class="loop-section">
+      <div class="page">
+        <h2 class="section-title">Built by running itself</h2>
+        <div class="loop-flow">
+          <div class="loop-step">
+            <div class="step-number">1</div>
+            <h3 class="step-title">Identify gap</h3>
+            <p class="step-description">A build session reveals a missing capability</p>
+          </div>
+          <div class="loop-connector"></div>
+          <div class="loop-step">
+            <div class="step-number">2</div>
+            <h3 class="step-title">Write the spec</h3>
+            <p class="step-description">A plan file describes the improvement</p>
+          </div>
+          <div class="loop-connector"></div>
+          <div class="loop-step">
+            <div class="step-number">3</div>
+            <h3 class="step-title">Run the pipeline</h3>
+            <p class="step-description">/build ships the fix in one session</p>
+          </div>
+        </div>
+        <p class="loop-note">Most of the agents, skills, and commands in this repo were written by the pipeline itself.</p>
+      </div>
+    </section>
+
+    <!-- GitHub Repo Card -->
+    <section class="repo-section">
+      <div class="page">
+        <div class="repo-card">
+          <div class="repo-icon">
+            <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          </div>
+          <div class="repo-info">
+            <p class="repo-name">timgranlundmarsden / claude-agent-flow</p>
+            <p class="repo-desc">Open source · Apache 2.0 · Multi-agent development system for Claude Code</p>
+          </div>
+          <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="repo-link" target="_blank" rel="noopener noreferrer">View on GitHub →</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Author Section -->
+    <section class="author-section">
+      <div class="page">
+        <div class="author-card">
+          <img src="https://avatars.githubusercontent.com/u/42029311?v=4" alt="Tim Granlund Marsden" class="author-avatar">
+          <h3 class="author-name">Tim Granlund Marsden</h3>
+          <div class="author-contact">
+            <a href="mailto:tim@digitomnia.com">tim@digitomnia.com</a>
+            <a href="https://github.com/timgranlundmarsden" target="_blank" rel="noopener noreferrer">GitHub →</a>
+          </div>
+          <p class="author-bio">Builder, tinkerer, and firm believer that AI agents should do the boring parts so humans can focus on what matters.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="page">
+      Apache 2.0 · Built with Claude Agent Flow · <a href="index.html">Home</a>
+    </div>
+  </footer>
+</body>
+</html>

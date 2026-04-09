@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": ["Bash(git *)", "Bash(npm test)"],
+    "deny": ["Bash(rm -rf /*)"],
+    "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "pattern": "backlog *",
+        "hooks": [{"type": "command", "command": "git push"}],
+        "_agentFlow": true
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "source-market": {"url": "https://source.example.com"}
+  },
+  "enabledPlugins": {
+    "source-plugin": true
+  }
+}

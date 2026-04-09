@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Flow Visualiser</title>
+<meta name="description" content="Agent Flow Visualiser — replay and inspect multi-agent build sessions interactively.">
+<meta property="og:title" content="Agent Flow Visualiser">
+<meta property="og:description" content="Agent Flow Visualiser — replay and inspect multi-agent build sessions interactively.">
+<meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+<meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/visualiser.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Claude Agent Flow">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Agent Flow Visualiser">
+<meta name="twitter:description" content="Agent Flow Visualiser — replay and inspect multi-agent build sessions interactively.">
+<meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
+<link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/visualiser.html">
+<!-- SECTION: fonts -->
+<style>
+/* ── CSS VARIABLES ─────────────────────────────────────────── */
+:root {
+  --bg:           #fbfbfd;
+  --surface:      #ffffff;
+  --surface-alt:  #f5f5f7;
+  --border:       #e5e5ea;
+  --text:         #1d1d1f;
+  --text-secondary: #6e6e73;
+  --blue:         #0071e3;
+  --opus:         #7c3aed;
+  --haiku:        #28a745;
+  --fail:         #ff3b30;
+  --shadow:       0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+  --font:         'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --mono:         'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --radius-lg:    16px;
+  --radius-md:    12px;
+  --radius-sm:    10px;
+  --console-bg:   #1d1d1f;
+  --console-text: #e5e5ea;
+  --console-dim:  #6e6e73;
+  --console-blue: #34aadc;
+  --console-accent: #ff9f0a;
+  --console-thinking: #a1a1a6;
+  --pass: #28a745;
+  --sonnet: #0071e3;
+}
+
+/* ── BASE RESET ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+a { color: var(--blue); }
+
+/* ── PAGE LAYOUT ─────────────────────────────────────────────── */
+.page-wrap {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px); /* viewport minus controls bar */
+  overflow: hidden;
+}
+.hero {
+  padding: 48px 0 16px;
+  text-align: center;
+  animation: fadeUp 0.6s ease-out both;
+}
+.eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  color: var(--text-secondary); text-transform: uppercase; margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 700; letter-spacing: -.025em; line-height: 1.05;
+  margin-bottom: 12px; color: var(--text);
+}
+.subtitle {
+  font-size: 17px; color: var(--text-secondary); max-width: 100%;
+  margin: 0 auto 12px; font-weight: 400; letter-spacing: -.01em;
+}
+.result-link {
+  display: inline-block; font-size: 14px; font-weight: 500;
+  color: var(--blue); text-decoration: none; padding: 6px 16px;
+  border: 1px solid var(--blue); border-radius: 20px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.result-link:hover {
+  background: var(--blue); color: #fff;
+}
+.vis-panels {
+  display: flex;
+  flex: 1;
+  min-height: 0; /* allow flex shrink below content height */
+  gap: 12px;
+  padding-bottom: 42px;
+  animation: fadeUp 0.5s 0.1s ease both;
+}
+.console-panel {
+  flex: 0 0 55%;
+  background: var(--console-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.04);
+}
+.flow-panel-outer {
+  flex: 0 0 calc(45% - 12px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.flow-panel-outer::-webkit-scrollbar { display: none; }
+.controls-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  transform: translateY(100%);
+  animation: slideUp 0.4s 0.3s ease forwards;
+}
+
+/* ── CONSOLE STYLES ──────────────────────────────────────────── */
+.console-header {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  flex-shrink: 0;
+}
+.console-header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 6px;
+}
+.console-prompt-bar {
+  display: none;
+  padding: 0 14px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+.console-prompt-bar.visible { display: block; }
+.console-dots { display: flex; gap: 6px; }
+.console-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+.console-dot.red   { background: #ff5f56; }
+.console-dot.amber { background: #ffbd2e; }
+.console-dot.green { background: #27c93f; }
+.console-title-bar {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.05em;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.console-agent-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.badge-opus   { background: rgba(124,58,237,0.25); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.4); }
+.badge-sonnet { background: rgba(0,113,227,0.25);  color: #93c5fd; border: 1px solid rgba(0,113,227,0.4); }
+.badge-haiku  { background: rgba(40,167,69,0.25);  color: #86efac; border: 1px solid rgba(40,167,69,0.4); }
+.badge-default{ background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.12); }
+
+#console-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  scroll-behavior: smooth;
+  /* scanline effect */
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.04) 2px,
+    rgba(0,0,0,0.04) 4px
+  );
+}
+#console-scroll::-webkit-scrollbar { width: 6px; }
+#console-scroll::-webkit-scrollbar-track { background: transparent; }
+#console-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+.console-line {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.console-line + .console-line { margin-top: 1px; }
+
+.console-message { color: var(--console-text); }
+.console-user {
+  color: #e8c44a;
+  border-left: 2px solid #e8c44a;
+  padding-left: 8px;
+  margin: 4px 0;
+}
+.console-thinking {
+  color: var(--console-thinking);
+  font-style: italic;
+  opacity: 0.75;
+}
+.console-thinking::before { content: '··· '; }
+
+.console-tool-call {
+  margin: 6px 0;
+  border-left: 2px solid var(--console-blue);
+  padding-left: 8px;
+}
+.console-tool-header {
+  color: var(--console-blue);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.console-tool-header--search {
+  color: #a78bfa;
+  font-size: 12px;
+}
+.console-tool-args {
+  color: rgba(229,229,234,0.55);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+}
+.console-tool-result {
+  margin: 4px 0 4px 10px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.console-tool-result-text {
+  color: var(--console-dim);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+}
+.console-tool-result details summary {
+  cursor: pointer;
+  color: var(--console-blue);
+  font-size: 11px;
+  opacity: 0.8;
+  user-select: none;
+  list-style: none;
+  margin-top: 4px;
+}
+.console-tool-result details summary::before { content: '▶ '; font-size: 9px; }
+.console-tool-result details[open] summary::before { content: '▼ '; font-size: 9px; }
+
+.console-verdict {
+  margin: 8px 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.console-verdict.pass {
+  background: rgba(40,167,69,0.2);
+  border: 1px solid rgba(40,167,69,0.4);
+  color: #86efac;
+}
+.console-verdict.fail {
+  background: rgba(255,59,48,0.2);
+  border: 1px solid rgba(255,59,48,0.4);
+  color: #fca5a5;
+  animation: pulseFail 2s ease-in-out infinite;
+}
+.console-verdict.unknown {
+  background: rgba(110,110,115,0.18);
+  border: 1px solid rgba(110,110,115,0.35);
+  color: #a1a1a6;
+}
+.console-verdict .verdict-icon { font-size: 16px; }
+
+.console-question {
+  margin: 10px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255,159,10,0.07);
+  border: 1px solid rgba(255,159,10,0.22);
+  border-left: 3px solid var(--console-accent);
+}
+.console-question-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--console-accent);
+  margin-bottom: 6px;
+}
+.console-question-text {
+  color: var(--console-text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+.console-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.console-question-option {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: rgba(229,229,234,0.45);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+.console-question-option.selected {
+  color: #86efac;
+  background: rgba(40,167,69,0.14);
+  border: 1px solid rgba(40,167,69,0.28);
+  font-weight: 600;
+}
+.console-question-option.selected::before { content: '→ '; }
+
+.console-activate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.console-activate-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.console-landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 32px;
+}
+.console-landing-title {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+.console-landing-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--console-accent);
+  background: rgba(255,159,10,0.1);
+  border: 1px solid rgba(255,159,10,0.2);
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.console-landing-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.2);
+  margin-top: 16px;
+  line-height: 1.8;
+}
+.console-error {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: #fca5a5;
+  background: rgba(255,59,48,0.12);
+  border: 1px solid rgba(255,59,48,0.25);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 16px;
+  line-height: 1.6;
+}
+.console-error-prefix { color: var(--fail); font-weight: 700; }
+
+/* ── PHASE BANNERS ──────────────────────────────────────────── */
+.console-phase {
+  padding: 10px 14px; border-radius: 8px; margin: 8px 0;
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.console-phase.start {
+  background: rgba(255,159,10,0.12); color: #ff9f0a;
+  border-left: 3px solid #ff9f0a;
+}
+.console-phase.end {
+  background: rgba(40,167,69,0.12); color: var(--pass);
+  border-left: 3px solid var(--pass);
+}
+
+/* cursor blink */
+.console-cursor {
+  display: inline-block;
+  width: 8px; height: 14px;
+  background: var(--console-accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: cursorBlink 1.1s step-end infinite;
+}
+
+/* ── FLOW PANEL STYLES ───────────────────────────────────────── */
+.flow-panel { flex: 1; padding: 16px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.flow-panel::-webkit-scrollbar { display: none; }
+.flow-vertical { max-width: 340px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.flow-node-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.flow-connector { width: 2px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+.flow-node {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; position: relative;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+  opacity: 0.4;
+}
+.flow-node.active {
+  opacity: 1;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+}
+.flow-node.active.model-opus { border-color: var(--opus); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+.flow-node.active.model-haiku { border-color: var(--haiku); box-shadow: 0 0 0 3px rgba(40,167,69,0.15); }
+.flow-node.completed { opacity: 0.7; }
+.flow-node.completed .flow-check { display: inline; }
+
+.flow-node-top { display: flex; align-items: center; gap: 8px; }
+.flow-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.flow-dot.dot-opus { background: var(--opus); }
+.flow-dot.dot-sonnet { background: var(--blue); }
+.flow-dot.dot-haiku { background: var(--haiku); }
+.flow-node-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.flow-node-model {
+  margin-left: auto; font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 20px; color: #fff;
+  letter-spacing: .02em; flex-shrink: 0;
+}
+.flow-node-model.opus { background: var(--opus); }
+.flow-node-model.sonnet { background: var(--blue); }
+.flow-node-model.haiku { background: var(--haiku); }
+.flow-node-status { font-size: 11px; color: var(--text-secondary); line-height: 1.4; min-height: 16px; }
+.flow-check { display: none; color: var(--haiku); font-size: 12px; }
+
+/* Loop counter badge on the right side of the node */
+.flow-loop-badge {
+  position: absolute; top: -8px; right: -8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--fail); color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: none; align-items: center; justify-content: center;
+}
+.flow-loop-badge.visible { display: flex; }
+
+/* Adversarial loop container — dashed red border like build-pipeline */
+.flow-adv-loop {
+  width: 100%; border: 2px dashed var(--fail); border-radius: var(--radius-md);
+  padding: 14px 14px 10px;
+}
+.flow-adv-header {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--fail); margin-bottom: 12px;
+}
+.flow-adv-inner { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+/* FAIL/PASS labels and arrows between critic/builder */
+.flow-branch-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0; }
+.flow-fail-label { font-size: 10px; font-weight: 700; color: #c5221f; letter-spacing: .04em; }
+.flow-pass-label { font-size: 10px; font-weight: 700; color: var(--haiku); letter-spacing: .04em; }
+.flow-adv-arrows { width: 100%; height: 48px; overflow: visible; margin: 4px 0; }
+.flow-loop-arrow { fill: none; stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity 0.3s; }
+.flow-loop-arrow.flash { opacity: 1; stroke-dasharray: 200; animation: traceUp 0.6s ease-out forwards; }
+.flow-arrow-path { fill: none; stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity 0.3s; }
+.flow-arrow-path.flash { opacity: 1; stroke-dasharray: 200; animation: traceDown 0.6s ease-out forwards; }
+.flow-fail-label, .flow-pass-label { transition: opacity 0.3s; }
+.flow-fail-label.dim, .flow-pass-label.dim { opacity: 0.25; }
+.flow-fail-label.bright, .flow-pass-label.bright { opacity: 1; }
+
+/* Title at top of flow panel */
+.flow-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; max-width: 340px; width: 100%; margin-left: auto; margin-right: auto; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 4px 0; }
+.flow-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.flow-stats { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
+.flow-stat { letter-spacing: .02em; }
+.flow-stat-sep { color: var(--border); }
+
+/* Pipeline done state — no outer border, banner alone signals completion */
+.flow-panel.done {}
+.flow-node.done-all {
+  opacity: 0.8;
+  border-color: var(--pass);
+}
+.flow-complete-banner {
+  width: 100%; padding: 12px 16px; border-radius: var(--radius-sm);
+  background: rgba(40,167,69,0.12); color: var(--pass);
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  letter-spacing: .04em; text-align: center;
+  border: 1px solid rgba(40,167,69,0.3);
+  animation: fadeUp 0.4s ease-out both;
+}
+.flow-node.done-all .flow-check { display: inline; }
+.flow-loops-counter {
+  flex: 1; text-align: center; font-family: var(--mono); font-size: 11px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--fail); visibility: hidden;
+}
+.flow-loops-counter.visible { visibility: visible; }
+
+.flow-landing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.8;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* ── CONTROLS BAR STYLES ──────────────────────────────────────── */
+#btn-play {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+#btn-play:hover { background: #005bbf; transform: scale(1.05); }
+#btn-play:active { transform: scale(0.96); }
+#btn-play:disabled { background: var(--border); color: var(--text-secondary); cursor: not-allowed; transform: none; }
+
+.jump-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+.jump-btn:hover { background: var(--border); transform: scale(1.05); }
+.jump-btn:active { transform: scale(0.96); }
+.jump-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+#btn-next-agent {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+#btn-next-agent:hover { background: var(--border); }
+#btn-next-agent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#scrubber {
+  flex: 1;
+  min-width: 60px;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+}
+#scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.2);
+  transition: box-shadow 0.15s;
+}
+#scrubber::-webkit-slider-thumb:hover { box-shadow: 0 0 0 5px rgba(0,113,227,0.25); }
+#scrubber::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: none;
+  cursor: pointer;
+}
+
+.speed-btn {
+  height: 28px;
+  min-width: 36px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+.speed-btn:hover { background: var(--surface-alt); color: var(--text); }
+.speed-btn.active {
+  background: rgba(0,113,227,0.1);
+  color: var(--blue);
+  border-color: rgba(0,113,227,0.3);
+}
+
+#event-counter {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 80px;
+  text-align: right;
+}
+.controls-sep {
+  width: 1px; height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── TOP NAV ─────────────────────────────────────────────── */
+.top-nav { position: sticky; top: 0; background: rgba(251,251,253,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); z-index: 100; }
+.top-nav .page { display: flex; align-items: center; height: 56px; gap: 32px; max-width: 1440px; margin: 0 auto; padding: 0 24px; }
+.nav-brand { display: flex; align-items: center; gap: 8px; }
+.nav-brand a { font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none; letter-spacing: -.01em; white-space: nowrap; }
+.nav-brand a:hover { color: var(--blue); }
+.nav-github-link { color: var(--text-secondary); display: flex; align-items: center; opacity: 0.55; transition: color 0.15s, opacity 0.15s; text-decoration: none; }
+.nav-github-link:hover { color: var(--text); opacity: 1; }
+.nav-links { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 14px; }
+.nav-links a { color: var(--text-secondary); text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+.nav-links a:hover { background: rgba(0,0,0,.05); color: var(--text); }
+.nav-links a.nav-active { color: var(--blue); font-weight: 600; }
+.nav-dropdown { position: relative; }
+.nav-dropdown-toggle { color: var(--text-secondary); font-size: 14px; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.nav-dropdown-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
+.nav-dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 140px; padding: 6px; opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity 0.2s, transform 0.2s, visibility 0.2s; z-index: 200; }
+.nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+.nav-dropdown-menu a { display: block; padding: 8px 12px; border-radius: 6px; color: var(--text); text-decoration: none; font-size: 13px; transition: background 0.15s; }
+.nav-dropdown-menu a:hover { background: rgba(0,113,227,.07); color: var(--blue); }
+.nav-toggle-cb { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.burger-icon { display: none; cursor: pointer; width: 44px; height: 44px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); flex-shrink: 0; margin-left: auto; }
+.burger-bar, .burger-bar::before, .burger-bar::after { display: block; width: 20px; height: 2px; background: var(--text); border-radius: 1px; transition: transform 0.3s ease, opacity 0.3s ease; }
+.burger-bar { position: relative; }
+.burger-bar::before, .burger-bar::after { content: ''; position: absolute; left: 0; }
+.burger-bar::before { top: -6px; }
+.burger-bar::after  { top:  6px; }
+.nav-toggle-cb:checked ~ header .burger-bar { background: transparent; }
+.nav-toggle-cb:checked ~ header .burger-bar::before { top: 0; transform: rotate(45deg); background: var(--text); }
+.nav-toggle-cb:checked ~ header .burger-bar::after  { top: 0; transform: rotate(-45deg); background: var(--text); }
+.nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; cursor: pointer; }
+.nav-toggle-cb:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+.nav-drawer { position: fixed; top: 0; right: 0; width: min(260px, 75vw); height: 100%; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.1); z-index: 1000; transform: translateX(100%); transition: transform 0.3s ease; display: flex; flex-direction: column; padding: 72px 20px 24px; overflow-y: auto; gap: 4px; }
+.nav-toggle-cb:checked ~ .nav-drawer { transform: translateX(0); }
+.nav-drawer a { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: 14px; color: var(--text); text-decoration: none; border-radius: var(--radius-sm); transition: background 0.15s; }
+.nav-drawer a:hover { background: rgba(0,113,227,.07); }
+.nav-drawer a.nav-active { font-weight: 700; color: var(--blue); background: rgba(0,113,227,.06); }
+.drawer-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text-secondary); cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s; }
+.drawer-close:hover { background: rgba(0,0,0,.05); }
+.drawer-reference-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); padding: 12px 14px 4px; }
+.drawer-reference a { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+.drawer-reference a:hover { color: var(--blue); }
+@media (max-width: 768px) { .nav-links, .nav-dropdown { display: none !important; } .burger-icon { display: flex !important; } }
+@media (min-width: 768.01px) { .nav-toggle-cb, .burger-icon, .nav-overlay, .nav-drawer, .drawer-close { display: none !important; } }
+
+/* ── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  flex-shrink: 0;
+  padding: 8px 0 9px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+  border-top: 1px solid var(--border);
+}
+footer a { color: var(--blue); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* ── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseFail {
+  0%,100% { opacity: .5; }
+  50%     { opacity: 1; }
+}
+@keyframes glowPass {
+  0%,100% { box-shadow: 0 0 0 rgba(40,167,69,0); }
+  50%     { box-shadow: 0 0 8px rgba(40,167,69,.6); }
+}
+@keyframes traceArrow {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes traceUp {
+  from { stroke-dashoffset: 200; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes traceDown {
+  from { stroke-dashoffset: 200; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes pulseGlow {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(0,113,227,0)); }
+  50%     { filter: drop-shadow(0 0 8px rgba(0,113,227,0.6)); }
+}
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── REDUCED MOTION ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .controls-bar { transform: translateY(0) !important; }
+  .console-cursor { animation: none !important; opacity: 1; }
+  .flow-node { transition: none !important; }
+  .flow-loop-arrow.flash, .flow-arrow-path.flash { animation: none !important; opacity: 1 !important; }
+}
+
+/* ── MOBILE RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page-wrap { padding: 0 12px 72px; height: auto; overflow: visible; }
+  .vis-panels {
+    flex-direction: column;
+    flex: none;
+    height: auto;
+  }
+  .console-panel {
+    flex: 0 0 auto;
+    height: 50vh;
+    min-height: 280px;
+  }
+  .flow-panel-outer {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 220px;
+    overflow-y: visible;
+  }
+  .flow-panel {
+    padding: 8px;
+  }
+  .controls-bar {
+    gap: 4px;
+    padding: 0 8px;
+  }
+  .speed-btn { min-width: 30px; font-size: 9px; }
+  #event-counter { min-width: 60px; font-size: 9px; }
+  #btn-next-agent { padding: 0 8px; font-size: 10px; }
+  .jump-btn { width: 28px; height: 28px; font-size: 10px; }
+}
+</style>
+</head>
+<body>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" aria-hidden="true">
+  <header class="top-nav">
+    <div class="page">
+      <div class="nav-brand">
+        <a href="index.html">Claude Agent Flow</a>
+        <a href="https://github.com/timgranlundmarsden/claude-agent-flow" class="nav-github-link" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="why-agent-flow.html">Why Agent Flow</a>
+        <a href="showcase.html">Showcase</a>
+        <a href="getting-started.html">Get Started</a>
+        <div class="nav-dropdown">
+          <span class="nav-dropdown-toggle">Reference ▾</span>
+          <div class="nav-dropdown-menu">
+            <a href="plan-pipeline.html">/plan</a>
+            <a href="build-pipeline.html">/build</a>
+            <a href="review-pipeline.html">/review</a>
+          </div>
+        </div>
+        <a href="about.html">About</a>
+      </nav>
+      <label for="nav-toggle" class="burger-icon" aria-label="Open menu"><span class="burger-bar"></span></label>
+    </div>
+  </header>
+  <label for="nav-toggle" class="nav-overlay" aria-label="Close menu"></label>
+  <nav class="nav-drawer" aria-label="Mobile navigation">
+    <label for="nav-toggle" class="drawer-close" aria-label="Close menu">&times;</label>
+    <a href="index.html">Home</a>
+    <a href="why-agent-flow.html">Why Agent Flow</a>
+    <a href="showcase.html">Showcase</a>
+    <a href="getting-started.html">Get Started</a>
+    <div class="drawer-reference-label">Reference</div>
+    <div class="drawer-reference">
+      <a href="plan-pipeline.html">/plan</a>
+      <a href="build-pipeline.html">/build</a>
+      <a href="review-pipeline.html">/review</a>
+    </div>
+    <a href="about.html">About</a>
+  </nav>
+<div class="page-wrap">
+
+<header class="hero" id="vis-hero">
+  <div class="eyebrow">BUILT WITH CLAUDE AGENT FLOW</div>
+  <h1 id="vis-title">Agent Flow Visualiser</h1>
+  <p class="subtitle" id="vis-subtitle">Load a log file with ?logid= or ?url= to begin</p>
+  <a id="vis-result-link" class="result-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none">See the end result &rarr;</a>
+</header>
+
+<main class="vis-panels" aria-label="Visualiser panels">
+  <!-- Console Panel (left 55%) -->
+  <section class="console-panel" aria-label="Agent console output">
+    <div class="console-header" aria-hidden="true">
+      <div class="console-header-top">
+        <div class="console-dots">
+          <span class="console-dot red"></span>
+          <span class="console-dot amber"></span>
+          <span class="console-dot green"></span>
+        </div>
+        <div class="console-title-bar">Claude Code Simulated Console</div>
+        <div id="active-agent-badge" class="console-agent-badge badge-default" aria-live="polite" aria-label="Active agent"></div>
+      </div>
+      <div class="console-prompt-bar" id="console-prompt-bar"></div>
+    </div>
+    <div id="console-scroll" role="log" aria-live="polite" aria-label="Agent console output" aria-relevant="additions">
+      <div class="console-landing" id="console-landing">
+        <div class="console-landing-title">// NO LOG LOADED</div>
+        <div class="console-landing-code">?logid=demo</div>
+        <div class="console-landing-code">?url=https://example.com/log.json</div>
+        <div class="console-landing-hint">
+          Use ?logid= to load a bundled log from logs/{id}.json<br>
+          Use ?url= to load an external JSON log file<br>
+          <br>
+          Required fields: agents, transitions, events
+        </div>
+        <span class="console-cursor" aria-hidden="true"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Flow Panel (right 45%) -->
+  <section class="flow-panel-outer" aria-label="Agent flow diagram">
+    <div class="flow-panel" id="flow-panel">
+      <div class="flow-header-row">
+        <div class="flow-title"><span id="flow-command-label">FLOW DIAGRAM</span></div>
+        <div class="flow-loops-counter" id="loop-counter" aria-live="polite" aria-label="Critic loop count"></div>
+        <div class="flow-stats" id="flow-stats">
+          <span id="flow-timer" class="flow-stat">0:00</span>
+          <span class="flow-stat-sep">·</span>
+          <span id="flow-cost" class="flow-stat">$0.00</span>
+        </div>
+      </div>
+      <div class="flow-vertical" id="flow-vertical">
+        <div class="flow-landing" id="flow-landing" aria-hidden="true">
+          Load a log file<br>to see the flow diagram
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>Claude Agent Flow — Agentic Workflow System using Claude Code. <a href="agent-orchestration-pipeline.html">Back to overview</a> · <a href="https://github.com/anthropics/claude-agent-flow" target="_blank" rel="noopener noreferrer">GitHub</a></footer>
+</div><!-- /.page-wrap -->
+
+<!-- Controls Bar (fixed bottom) -->
+<div class="controls-bar" role="toolbar" aria-label="Playback controls">
+  <button id="btn-start" class="jump-btn" aria-label="Jump to beginning" disabled title="Jump to beginning (Home)">⏮</button>
+  <button id="btn-play" aria-label="Play" disabled title="Play (Space)">▶</button>
+  <button id="btn-end" class="jump-btn" aria-label="Jump to end" disabled title="Jump to end (End)">⏭</button>
+  <button id="btn-next-agent" aria-label="Jump to next agent" disabled title="Next agent (→)">next agent →</button>
+  <div class="controls-sep" aria-hidden="true"></div>
+  <input id="scrubber" type="range" min="0" max="0" value="0" step="1" aria-label="Playback position" disabled>
+  <div class="controls-sep" aria-hidden="true"></div>
+  <button class="speed-btn" data-speed="0.25" aria-label="0.25x speed" title="0.25× speed (1)">0.25×</button>
+  <button class="speed-btn" data-speed="0.5" aria-label="0.5x speed" title="0.5× speed (2)">0.5×</button>
+  <button class="speed-btn active" data-speed="1" aria-label="1x speed" title="1× speed (3)">1×</button>
+  <button class="speed-btn" data-speed="2" aria-label="2x speed" title="2× speed (4)">2×</button>
+  <button class="speed-btn" data-speed="5" aria-label="5x speed" title="5× speed (5)">5×</button>
+  <div class="controls-sep" aria-hidden="true"></div>
+  <span id="event-counter" aria-live="polite" aria-label="Event position">— / —</span>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE 1: LogLoader
+   Responsibilities: URL param parsing, fetch, schema validation
+   ══════════════════════════════════════════════════════════════ */
+const LogLoader = {
+  async load() {
+    const params = new URLSearchParams(window.location.search);
+    const logid  = params.get('logid');
+    const url    = params.get('url');
+
+    if (!logid && !url) return null; // landing state
+
+    let fetchUrl;
+    if (logid) {
+      // sanitize logid: alphanumeric, hyphens, underscores only
+      if (!/^[a-zA-Z0-9_-]+$/.test(logid)) {
+        throw new Error('Invalid log ID. Only letters, numbers, hyphens and underscores are allowed.');
+      }
+      fetchUrl = 'logs/' + encodeURIComponent(logid) + '.json';
+    } else {
+      fetchUrl = url;
+    }
+
+    let response;
+    try {
+      response = await fetch(fetchUrl);
+    } catch (e) {
+      if (url) {
+        throw new Error('Cross-origin request blocked. The remote server must allow CORS, or use ?logid= with a bundled log.');
+      }
+      throw new Error('Network error: ' + e.message);
+    }
+
+    if (!response.ok) {
+      if (logid) {
+        throw new Error('Log not found: ' + logid + '.json');
+      }
+      throw new Error('Failed to fetch log (' + response.status + '): ' + response.statusText);
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      throw new Error('Invalid JSON in log file');
+    }
+
+    LogLoader.validate(data);
+    return data;
+  },
+
+  validate(data) {
+    const required = ['agents', 'transitions', 'events'];
+    for (const field of required) {
+      if (!data[field]) {
+        throw new Error("Invalid log format: missing required field '" + field + "'");
+      }
+    }
+    if (!Array.isArray(data.agents)) {
+      throw new Error("Invalid log format: 'agents' must be an array");
+    }
+    if (!Array.isArray(data.transitions)) {
+      throw new Error("Invalid log format: 'transitions' must be an array");
+    }
+    if (!Array.isArray(data.events)) {
+      throw new Error("Invalid log format: 'events' must be an array");
+    }
+    // validate agent shape
+    data.agents.forEach(function(a, i) {
+      if (!a.id)    throw new Error("Invalid log format: agents[" + i + "] missing 'id'");
+      if (!a.label) throw new Error("Invalid log format: agents[" + i + "] missing 'label'");
+    });
+    // validate transition shape
+    data.transitions.forEach(function(t, i) {
+      if (!t.id)   throw new Error("Invalid log format: transitions[" + i + "] missing 'id'");
+      if (!t.from) throw new Error("Invalid log format: transitions[" + i + "] missing 'from'");
+      if (!t.to)   throw new Error("Invalid log format: transitions[" + i + "] missing 'to'");
+    });
+    // validate event fields
+    for (var i = 0; i < data.events.length; i++) {
+      var ev = data.events[i];
+      if (!ev.kind || typeof ev.kind !== 'string') throw new Error('Invalid event at index ' + i + ': missing or invalid "kind" field');
+      if (ev.kind === 'transition' && (!ev.transition || typeof ev.transition !== 'string')) throw new Error('Invalid event at index ' + i + ': transition event missing "transition" field');
+    }
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE 2: FlowController
+   Responsibilities: Build and update DOM vertical flow from log data
+   ══════════════════════════════════════════════════════════════ */
+const FlowController = {
+  agentMap: {},       // id -> { data, el, statusEl, badgeEl, loopCount }
+  transitionMap: {},  // id -> transition data
+  loopCount: 0,
+  criticId: null,
+  _prevActiveId: null,
+  _loopArrowEl: null, // the animating SVG path in adv loop
+  currentPhase: null,
+  _logData: null,     // stored for phase rebuild
+
+  init(logData) {
+    this.agentMap = {};
+    this.transitionMap = {};
+    this.loopCount = 0;
+    this.criticId = null;
+    this._prevActiveId = null;
+    this._loopArrowEl = null;
+    this.currentPhase = null;
+    this._logData = logData;
+
+    // build transition map
+    logData.transitions.forEach(function(t) {
+      FlowController.transitionMap[t.id] = t;
+    });
+
+    // identify critic and fail-loop agents
+    // find any 'fail' transition — its from/to are the loop pair
+    var failTransition = null;
+    logData.transitions.forEach(function(t) {
+      if (t.type === 'fail') failTransition = t;
+    });
+
+    var loopFromId = failTransition ? failTransition.from : null;
+    var loopToId   = failTransition ? failTransition.to   : null;
+    // also find pass transition between same pair
+    var passTransition = null;
+    if (failTransition) {
+      logData.transitions.forEach(function(t) {
+        if (t.type === 'pass' && t.from === loopFromId) passTransition = t;
+      });
+    }
+
+    // detect critic id
+    logData.agents.forEach(function(a) {
+      if (a.id === 'critic' || (a.label && a.label.toLowerCase().includes('critic'))) {
+        FlowController.criticId = a.id;
+      }
+    });
+
+    // clear vertical container
+    var vertical = document.getElementById('flow-vertical');
+    while (vertical.firstChild) vertical.removeChild(vertical.firstChild);
+
+    // determine which agents are in the adversarial loop (fail transition pair)
+    var advAgentIds = loopFromId ? [loopFromId, loopToId] : [];
+
+    // collect agents in order, building the DOM
+    // We need to know which agents are inside the adv loop to wrap them
+    var agents = logData.agents;
+
+    // Find the index range for the adv loop agents
+    var advStartIdx = -1, advEndIdx = -1;
+    if (advAgentIds.length === 2) {
+      for (var i = 0; i < agents.length; i++) {
+        if (agents[i].id === advAgentIds[0] || agents[i].id === advAgentIds[1]) {
+          if (advStartIdx === -1) advStartIdx = i;
+          advEndIdx = i;
+        }
+      }
+    }
+
+    var advContainer = null;
+    var advInner = null;
+
+    for (var idx = 0; idx < agents.length; idx++) {
+      var a = agents[idx];
+      var inAdv = advAgentIds.indexOf(a.id) !== -1;
+
+      // If entering adv loop range — create the container
+      if (inAdv && advContainer === null) {
+        // connector before adv block
+        if (idx > 0) {
+          var preConn = document.createElement('div');
+          preConn.className = 'flow-connector';
+          vertical.appendChild(preConn);
+        }
+
+        advContainer = document.createElement('div');
+        advContainer.className = 'flow-adv-loop';
+
+        var advHeader = document.createElement('div');
+        advHeader.className = 'flow-adv-header';
+        advHeader.textContent = 'Adversarial Loop';
+        advContainer.appendChild(advHeader);
+
+        advInner = document.createElement('div');
+        advInner.className = 'flow-adv-inner';
+        advContainer.appendChild(advInner);
+
+        vertical.appendChild(advContainer);
+      }
+
+      var parent = inAdv ? advInner : vertical;
+
+      // Add connector before node (not before first in outer, not before first in adv)
+      var isFirstInParent = (inAdv && advInner.children.length === 0) || (!inAdv && vertical.children.length === 0);
+      if (!isFirstInParent && !inAdv) {
+        var conn = document.createElement('div');
+        conn.className = 'flow-connector';
+        parent.appendChild(conn);
+      }
+      if (inAdv && advInner.children.length > 0) {
+        // arrows SVG between critic and its fail-target
+        var arrowsSvg = this._buildAdvArrows(loopFromId, loopToId, passTransition, a);
+        if (arrowsSvg) advInner.appendChild(arrowsSvg);
+      }
+
+      // Build node wrapper
+      var wrapper = document.createElement('div');
+      wrapper.className = 'flow-node-wrapper';
+
+      var node = document.createElement('div');
+      var modelClass = this._modelClass(a.model);
+      node.className = 'flow-node' + (modelClass ? ' model-' + modelClass : '');
+      node.setAttribute('data-agent-id', a.id);
+      node.setAttribute('aria-label', a.label + ' agent');
+
+      // top row
+      var top = document.createElement('div');
+      top.className = 'flow-node-top';
+
+      var dot = document.createElement('span');
+      dot.className = 'flow-dot dot-' + (modelClass || 'sonnet');
+      top.appendChild(dot);
+
+      var name = document.createElement('span');
+      name.className = 'flow-node-name';
+      name.textContent = a.label;
+      top.appendChild(name);
+
+      if (a.model) {
+        var pill = document.createElement('span');
+        pill.className = 'flow-node-model ' + (modelClass || 'sonnet');
+        pill.textContent = a.model;
+        top.appendChild(pill);
+      }
+
+      var check = document.createElement('span');
+      check.className = 'flow-check';
+      check.setAttribute('aria-hidden', 'true');
+      check.textContent = '✓';
+      top.appendChild(check);
+
+      node.appendChild(top);
+
+      // status row
+      var statusEl = document.createElement('div');
+      statusEl.className = 'flow-node-status';
+      statusEl.textContent = '';
+      node.appendChild(statusEl);
+
+      // loop badge (for critic)
+      var badge = document.createElement('div');
+      badge.className = 'flow-loop-badge';
+      badge.setAttribute('aria-hidden', 'true');
+      badge.textContent = '0';
+      node.appendChild(badge);
+
+      wrapper.appendChild(node);
+      parent.appendChild(wrapper);
+
+      this.agentMap[a.id] = {
+        data: a,
+        el: node,
+        statusEl: statusEl,
+        badgeEl: badge,
+        loopCount: 0
+      };
+    }
+
+    // Update loop counter display
+    var loopCounter = document.getElementById('loop-counter');
+    if (loopCounter) loopCounter.textContent = '';
+  },
+
+  _buildAdvArrows(fromId, toId, passTransition, currentAgent) {
+    // Only insert between the two adv agents
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'flow-adv-arrows');
+    svg.setAttribute('viewBox', '0 0 300 48');
+    svg.setAttribute('aria-hidden', 'true');
+
+    // Left side: FAIL arrow going back up (from critic to builder)
+    // Right side: PASS arrow going down (from critic to next)
+    // We use two curved paths side by side
+
+    // FAIL arrow (left, red, straight UP from critic to builder)
+    var failPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    failPath.setAttribute('d', 'M 80 44 L 80 4');
+    failPath.setAttribute('stroke', '#ff3b30');
+    failPath.setAttribute('class', 'flow-loop-arrow');
+    failPath.setAttribute('marker-end', 'url(#flow-arrow-fail-marker)');
+    svg.appendChild(failPath);
+    this._loopArrowEl = failPath;
+
+    // FAIL label (starts dim)
+    var failLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    failLabel.setAttribute('x', '8');
+    failLabel.setAttribute('y', '28');
+    failLabel.setAttribute('font-family', "'SF Mono', ui-monospace, monospace");
+    failLabel.setAttribute('font-size', '9');
+    failLabel.setAttribute('font-weight', '700');
+    failLabel.setAttribute('fill', '#c5221f');
+    failLabel.setAttribute('letter-spacing', '.04em');
+    failLabel.setAttribute('class', 'flow-fail-label dim');
+    failLabel.textContent = 'FAIL';
+    svg.appendChild(failLabel);
+    this._failLabelEl = failLabel;
+
+    // PASS straight arrow (right side, going DOWN)
+    var passPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    passPath.setAttribute('d', 'M 220 4 L 220 44');
+    passPath.setAttribute('stroke', '#28a745');
+    passPath.setAttribute('class', 'flow-arrow-path');
+    passPath.setAttribute('marker-end', 'url(#flow-arrow-pass-marker)');
+    passPath.setAttribute('id', 'flow-pass-arrow');
+    svg.appendChild(passPath);
+    this._passArrowEl = passPath;
+
+    // PASS label (starts dim)
+    var passLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    passLabel.setAttribute('x', '232');
+    passLabel.setAttribute('y', '28');
+    passLabel.setAttribute('font-family', "'SF Mono', ui-monospace, monospace");
+    passLabel.setAttribute('font-size', '9');
+    passLabel.setAttribute('font-weight', '700');
+    passLabel.setAttribute('fill', '#28a745');
+    passLabel.setAttribute('letter-spacing', '.04em');
+    passLabel.setAttribute('class', 'flow-pass-label dim');
+    passLabel.textContent = 'PASS';
+    svg.appendChild(passLabel);
+    this._passLabelEl = passLabel;
+
+    // Defs for markers
+    var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    // FAIL marker: fixed orientation pointing UP (270deg)
+    var mFail = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    mFail.setAttribute('id', 'flow-arrow-fail-marker');
+    mFail.setAttribute('markerWidth', '8'); mFail.setAttribute('markerHeight', '8');
+    mFail.setAttribute('refX', '4'); mFail.setAttribute('refY', '4');
+    mFail.setAttribute('orient', '270');
+    var mFailPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mFailPath.setAttribute('d', 'M0,0 L0,8 L8,4 z');
+    mFailPath.setAttribute('fill', '#ff3b30');
+    mFail.appendChild(mFailPath);
+    defs.appendChild(mFail);
+
+    // PASS marker: auto-orient (points down along the path)
+    var mPass = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    mPass.setAttribute('id', 'flow-arrow-pass-marker');
+    mPass.setAttribute('markerWidth', '8'); mPass.setAttribute('markerHeight', '8');
+    mPass.setAttribute('refX', '4'); mPass.setAttribute('refY', '4');
+    mPass.setAttribute('orient', 'auto');
+    var mPassPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mPassPath.setAttribute('d', 'M0,0 L0,8 L8,4 z');
+    mPassPath.setAttribute('fill', '#28a745');
+    mPass.appendChild(mPassPath);
+    defs.appendChild(mPass);
+
+    svg.appendChild(defs);
+    return svg;
+  },
+
+  _modelClass(model) {
+    if (!model) return 'sonnet';
+    var m = model.toLowerCase();
+    if (m.includes('opus'))  return 'opus';
+    if (m.includes('haiku')) return 'haiku';
+    return 'sonnet';
+  },
+
+  activateAgent(agentId) {
+    var self = FlowController;
+    // Mark previous active as completed
+    if (self._prevActiveId && self.agentMap[self._prevActiveId]) {
+      var prev = self.agentMap[self._prevActiveId];
+      prev.el.classList.remove('active');
+      prev.el.classList.add('completed');
+    }
+    // Remove active from all, then set
+    Object.keys(self.agentMap).forEach(function(id) {
+      self.agentMap[id].el.classList.remove('active');
+    });
+    if (!agentId || !self.agentMap[agentId]) {
+      self._prevActiveId = null;
+      return;
+    }
+    self._prevActiveId = agentId;
+    var node = self.agentMap[agentId];
+    node.el.classList.add('active');
+
+    // Scroll into view
+    var panel = document.getElementById('flow-panel');
+    if (panel && node.el) {
+      var nodeTop = node.el.offsetTop;
+      var panelScroll = panel.scrollTop;
+      var panelHeight = panel.clientHeight;
+      if (nodeTop < panelScroll || nodeTop + node.el.offsetHeight > panelScroll + panelHeight) {
+        node.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  },
+
+  updateStatus(agentId, text) {
+    if (!agentId || !this.agentMap[agentId]) return;
+    var el = this.agentMap[agentId].statusEl;
+    el.textContent = text || '';
+    var lower = (text || '').toLowerCase();
+    var isFail = /\bfail|\bblocker|\brejected|\btest failure|\berror/.test(lower);
+    el.style.color = isFail ? 'var(--fail)' : '';
+    el.style.fontWeight = isFail ? '600' : '';
+  },
+
+  animateTransition(transitionId, type) {
+    var t = this.transitionMap[transitionId];
+    if (!t) return;
+
+    if (type === 'fail') {
+      // Flash the red loop arrow with trace animation
+      if (this._loopArrowEl) {
+        this._loopArrowEl.classList.remove('flash');
+        void this._loopArrowEl.getBoundingClientRect();
+        this._loopArrowEl.classList.add('flash');
+        setTimeout(function() {
+          if (FlowController._loopArrowEl) FlowController._loopArrowEl.classList.remove('flash');
+        }, 2000);
+      }
+      // Flash FAIL label bright
+      if (this._failLabelEl) {
+        this._failLabelEl.classList.remove('dim');
+        this._failLabelEl.classList.add('bright');
+        setTimeout(function() {
+          if (FlowController._failLabelEl) {
+            FlowController._failLabelEl.classList.remove('bright');
+            FlowController._failLabelEl.classList.add('dim');
+          }
+        }, 2000);
+      }
+      if (this.criticId && t.from === this.criticId) {
+        this._incLoopCount();
+      }
+    } else if (type === 'pass') {
+      // Flash the green pass arrow with trace animation
+      if (this._passArrowEl) {
+        this._passArrowEl.classList.remove('flash');
+        void this._passArrowEl.getBoundingClientRect();
+        this._passArrowEl.classList.add('flash');
+        setTimeout(function() {
+          if (FlowController._passArrowEl) FlowController._passArrowEl.classList.remove('flash');
+        }, 2000);
+      }
+      // Flash PASS label bright
+      if (this._passLabelEl) {
+        this._passLabelEl.classList.remove('dim');
+        this._passLabelEl.classList.add('bright');
+        setTimeout(function() {
+          if (FlowController._passLabelEl) {
+            FlowController._passLabelEl.classList.remove('bright');
+            FlowController._passLabelEl.classList.add('dim');
+          }
+        }, 2000);
+      }
+    } else {
+      // Highlight the connector between the two agents — brief opacity flash
+      var fromNode = this.agentMap[t.from];
+      var toNode   = this.agentMap[t.to];
+      if (fromNode && toNode) {
+        // Find the connector between them: it's the element after fromNode's wrapper
+        var wrapper = fromNode.el.parentElement;
+        if (wrapper && wrapper.nextSibling) {
+          var conn = wrapper.nextSibling;
+          if (conn && conn.classList && conn.classList.contains('flow-connector')) {
+            conn.style.background = 'var(--blue)';
+            conn.style.height = '22px';
+            setTimeout(function() { conn.style.background = ''; conn.style.height = ''; }, 500);
+          }
+        }
+      }
+    }
+  },
+
+  _incLoopCount() {
+    this.loopCount++;
+    if (this.criticId && this.agentMap[this.criticId]) {
+      var badge = this.agentMap[this.criticId].badgeEl;
+      badge.textContent = String(this.loopCount);
+      badge.classList.add('visible');
+    }
+    var counter = document.getElementById('loop-counter');
+    if (counter) {
+      counter.textContent = 'LOOPS: ' + this.loopCount;
+      counter.classList.add('visible');
+    }
+  },
+
+  reset() {
+    this.loopCount = 0;
+    this._prevActiveId = null;
+    this.currentPhase = null;
+    Object.keys(this.agentMap).forEach(function(id) {
+      var node = FlowController.agentMap[id];
+      node.el.classList.remove('active', 'completed', 'done-all');
+      node.statusEl.textContent = '';
+      node.badgeEl.textContent = '0';
+      node.badgeEl.classList.remove('visible');
+    });
+    if (this._loopArrowEl) {
+      this._loopArrowEl.classList.remove('animating');
+    }
+    var counter = document.getElementById('loop-counter');
+    if (counter) { counter.textContent = ''; counter.classList.remove('visible'); }
+    // clear done state from flow panel
+    var panel = document.getElementById('flow-panel');
+    if (panel) panel.classList.remove('done');
+    var banner = document.getElementById('flow-complete-banner');
+    if (banner) banner.remove();
+  },
+
+  setPhase(phaseName) {
+    if (!this._logData) return;
+    this.currentPhase = phaseName;
+
+    // Filter agents for this phase: include agents with matching phase OR no phase field
+    var allAgents = this._logData.agents;
+    var visibleAgents = allAgents.filter(function(a) {
+      return !a.phase || a.phase === phaseName;
+    });
+    var visibleIds = visibleAgents.map(function(a) { return a.id; });
+
+    // Filter transitions to only those between visible agents
+    var visibleTransitions = this._logData.transitions.filter(function(t) {
+      return visibleIds.indexOf(t.from) !== -1 && visibleIds.indexOf(t.to) !== -1;
+    });
+
+    // Rebuild with filtered data
+    var filteredLog = {
+      agents: visibleAgents,
+      transitions: visibleTransitions
+    };
+
+    // Save current active/completed state so we can reapply after rebuild
+    var activeId = this._prevActiveId;
+    var completedIds = [];
+    Object.keys(this.agentMap).forEach(function(id) {
+      if (FlowController.agentMap[id].el.classList.contains('completed')) {
+        completedIds.push(id);
+      }
+    });
+
+    // Reinitialise with filtered data (reuses init logic)
+    var savedLogData = this._logData;
+    this.init(Object.assign({}, savedLogData, filteredLog));
+    // Restore _logData to full log so future setPhase calls work
+    this._logData = savedLogData;
+    this.currentPhase = phaseName;
+
+    // Reapply visual state for agents still visible
+    completedIds.forEach(function(id) {
+      if (FlowController.agentMap[id]) {
+        FlowController.agentMap[id].el.classList.add('completed');
+      }
+    });
+    if (activeId && this.agentMap[activeId]) {
+      this.activateAgent(activeId);
+    }
+  },
+
+  markAllDone(text) {
+    Object.keys(this.agentMap).forEach(function(id) {
+      var node = FlowController.agentMap[id];
+      node.el.classList.remove('active');
+      node.el.classList.add('done-all');
+    });
+    var panel = document.getElementById('flow-panel');
+    if (panel) panel.classList.add('done');
+    // Add PIPELINE COMPLETE banner at bottom of flow
+    var vertical = document.getElementById('flow-vertical');
+    if (vertical && !document.getElementById('flow-complete-banner')) {
+      var connector = document.createElement('div');
+      connector.className = 'flow-connector';
+      vertical.appendChild(connector);
+      var banner = document.createElement('div');
+      banner.id = 'flow-complete-banner';
+      banner.className = 'flow-complete-banner';
+      banner.textContent = '\u2713 ' + (text || 'PIPELINE COMPLETE');
+      vertical.appendChild(banner);
+    }
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE 3: ConsoleRenderer
+   Responsibilities: DOM event rendering, auto-scroll
+   ══════════════════════════════════════════════════════════════ */
+const ConsoleRenderer = {
+  scroll: null,
+  userScrolled: false,
+  _wheelHandler: null,
+  _activeAgentId: null,
+  _agentModelMap: {},
+  _pendingEventIndex: null,
+
+  init(logData) {
+    this.scroll = document.getElementById('console-scroll');
+    this.userScrolled = false;
+    this._activeAgentId = null;
+    this._agentModelMap = {};
+
+    // build model map
+    if (logData && logData.agents) {
+      logData.agents.forEach(function(a) {
+        ConsoleRenderer._agentModelMap[a.id] = a.model || '';
+      });
+    }
+
+    // clear landing
+    const landing = document.getElementById('console-landing');
+    if (landing) landing.remove();
+    // clear content
+    while (this.scroll.firstChild) this.scroll.removeChild(this.scroll.firstChild);
+
+    // Detect user scroll via wheel/touch (never fires from programmatic scroll)
+    if (this._wheelHandler) {
+      this.scroll.removeEventListener('wheel', this._wheelHandler);
+      this.scroll.removeEventListener('touchmove', this._wheelHandler);
+    }
+    this._wheelHandler = this._onUserScroll.bind(this);
+    this.scroll.addEventListener('wheel', this._wheelHandler, { passive: true });
+    this.scroll.addEventListener('touchmove', this._wheelHandler, { passive: true });
+  },
+
+  _onUserScroll() {
+    // Mark as user-scrolled; check after browser applies the scroll
+    var self = this;
+    requestAnimationFrame(function() {
+      if (!self.scroll) return;
+      var s = self.scroll;
+      var atBottom = s.scrollHeight - s.scrollTop - s.clientHeight < 40;
+      self.userScrolled = !atBottom;
+      // If full log is shown, sync flow+scrubber to visible position
+      if (PlaybackEngine._showedRemaining) {
+        self._syncFlowToScroll();
+      }
+    });
+  },
+
+  _syncFlowToScroll() {
+    if (!this.scroll) return;
+    var s = this.scroll;
+    var maxScroll = s.scrollHeight - s.clientHeight;
+    if (maxScroll <= 0) return;
+    var fraction = Math.min(1, s.scrollTop / maxScroll);
+    var index = Math.round(fraction * (PlaybackEngine.events.length - 1));
+    PlaybackEngine._seekFlowOnly(index);
+  },
+
+  showLanding() {
+    // show default landing (already in DOM initially)
+  },
+
+  showError(msg) {
+    const s = document.getElementById('console-scroll');
+    if (!s) return;
+    // clear landing first
+    const landing = document.getElementById('console-landing');
+    if (landing) landing.remove();
+    while (s.firstChild) s.removeChild(s.firstChild);
+
+    const div = document.createElement('div');
+    div.className = 'console-error';
+    const prefix = document.createElement('span');
+    prefix.className = 'console-error-prefix';
+    prefix.textContent = 'ERROR ';
+    div.appendChild(prefix);
+    const msg2 = document.createTextNode(msg);
+    div.appendChild(msg2);
+    s.appendChild(div);
+  },
+
+  renderEvent(event) {
+    if (!this.scroll) return;
+    const kind = event.kind;
+
+    if (kind === 'activate') {
+      this._activeAgentId = event.agent;
+      this._renderActivate(event);
+      return;
+    }
+    if (kind === 'transition') return; // handled by SVG
+    if (kind === 'pause')      return; // timing only
+    if (kind === 'phase') {
+      this._renderPhaseBanner(event);
+      return;
+    }
+
+    const el = document.createElement('div');
+
+    switch (kind) {
+      case 'message':
+        el.className = 'console-line console-message';
+        this._setAnnotated(el, event.text || '');
+        break;
+
+      case 'user':
+        el.className = 'console-line console-user';
+        el.textContent = '> ' + (event.text || '');
+        break;
+
+      case 'thinking':
+        el.className = 'console-line console-thinking';
+        el.textContent = event.text || '';
+        break;
+
+      case 'tool-call':
+        el.className = 'console-tool-call';
+        const header = document.createElement('div');
+        var isSearch = toolName === 'WEBSEARCH' || toolName === 'WEB_SEARCH';
+        header.className = 'console-tool-header' + (isSearch ? ' console-tool-header--search' : '');
+        var toolName = (event.tool || 'tool').toUpperCase();
+        var toolIcons = {
+          'WEBSEARCH': '🔍', 'WEB_SEARCH': '🔍', 'WEBFETCH': '🌐', 'WEB_FETCH': '🌐',
+          'BASH': '⚙', 'READ_FILE': '📄', 'WRITE_FILE': '✏️', 'EDIT_FILE': '✏️',
+          'DISPATCH_AGENT': '🤖', 'GIT': '🔀'
+        };
+        var toolIcon = toolIcons[toolName] || '⚙';
+        header.textContent = toolIcon + '  ' + (event.tool || 'tool');
+        el.appendChild(header);
+        if (event.args) {
+          const args = document.createElement('div');
+          args.className = 'console-line console-tool-args';
+          args.textContent = event.args;
+          el.appendChild(args);
+        }
+        break;
+
+      case 'tool-result':
+        el.className = 'console-tool-result';
+        const resultText = event.text || '';
+        const lines = resultText.split('\n');
+        if (lines.length > 8) {
+          const visible = document.createElement('div');
+          visible.className = 'console-line console-tool-result-text';
+          this._setAnnotated(visible, lines.slice(0, 8).join('\n'));
+          el.appendChild(visible);
+          const details = document.createElement('details');
+          const summary = document.createElement('summary');
+          summary.textContent = 'show more';
+          details.appendChild(summary);
+          const rest = document.createElement('div');
+          rest.className = 'console-line console-tool-result-text';
+          this._setAnnotated(rest, lines.slice(8).join('\n'));
+          details.appendChild(rest);
+          el.appendChild(details);
+        } else {
+          const resultDiv = document.createElement('div');
+          resultDiv.className = 'console-line console-tool-result-text';
+          this._setAnnotated(resultDiv, resultText);
+          el.appendChild(resultDiv);
+        }
+        break;
+
+      case 'question': {
+        el.className = 'console-question';
+        const qlabel = document.createElement('div');
+        qlabel.className = 'console-question-label';
+        qlabel.textContent = '? user question';
+        el.appendChild(qlabel);
+        const qtext = document.createElement('div');
+        qtext.className = 'console-question-text';
+        qtext.textContent = event.question || event.text || '';
+        el.appendChild(qtext);
+        if (event.options && event.options.length) {
+          const qopts = document.createElement('div');
+          qopts.className = 'console-question-options';
+          const answerVal = event.answer;
+          const answerArr = Array.isArray(answerVal) ? answerVal : (answerVal ? [answerVal] : []);
+          event.options.forEach(function(opt) {
+            const optDiv = document.createElement('div');
+            const label = (typeof opt === 'object') ? (opt.label || '') : String(opt);
+            const isSelected = answerArr.some(function(a) { return a === label; });
+            optDiv.className = 'console-question-option' + (isSelected ? ' selected' : '');
+            optDiv.textContent = label;
+            if (typeof opt === 'object' && opt.description) {
+              optDiv.title = opt.description;
+            }
+            qopts.appendChild(optDiv);
+          });
+          el.appendChild(qopts);
+        }
+        break;
+      }
+
+      case 'verdict':
+        el.className = 'console-verdict ' + (event.result === 'pass' ? 'pass' : event.result === 'fail' ? 'fail' : 'unknown');
+        const icon = document.createElement('span');
+        icon.className = 'verdict-icon';
+        icon.textContent = event.result === 'pass' ? '✓' : event.result === 'fail' ? '✗' : '–';
+        el.appendChild(icon);
+        const vtext = document.createTextNode(event.text || (event.result === 'pass' ? 'PASS' : event.result === 'fail' ? 'FAIL' : event.result || 'UNKNOWN'));
+        el.appendChild(vtext);
+        break;
+
+      default:
+        el.className = 'console-line console-message';
+        this._setAnnotated(el, event.text || '');
+    }
+
+    if (this._pendingEventIndex !== null) el.dataset.eventIndex = this._pendingEventIndex;
+    this.scroll.appendChild(el);
+    this._maybeScroll();
+  },
+
+  _renderActivate(event) {
+    const model = this._agentModelMap[event.agent] || '';
+    const div = document.createElement('div');
+    div.className = 'console-activate';
+
+    const label = document.createElement('span');
+    label.className = 'console-activate-label';
+    label.textContent = '──';
+    div.appendChild(label);
+
+    const badge = document.createElement('span');
+    const badgeClass = model.toLowerCase().includes('opus') ? 'badge-opus' :
+                       model.toLowerCase().includes('haiku') ? 'badge-haiku' :
+                       model ? 'badge-sonnet' : 'badge-default';
+    badge.className = 'console-agent-badge ' + badgeClass;
+    badge.textContent = event.text || event.agent;
+    div.appendChild(badge);
+
+    const label2 = document.createElement('span');
+    label2.className = 'console-activate-label';
+    label2.textContent = '──';
+    div.appendChild(label2);
+
+    if (this._pendingEventIndex !== null) div.dataset.eventIndex = this._pendingEventIndex;
+    this.scroll.appendChild(div);
+
+    // update header badge
+    const headerBadge = document.getElementById('active-agent-badge');
+    if (headerBadge) {
+      headerBadge.className = 'console-agent-badge ' + badgeClass;
+      headerBadge.textContent = event.text || event.agent;
+    }
+
+    this._maybeScroll();
+  },
+
+  _renderPhaseBanner(event) {
+    const isStart = event.result === 'start';
+    const div = document.createElement('div');
+    div.className = 'console-phase ' + (isStart ? 'start' : 'end');
+    const icon = isStart ? '▶ ' : '✓ ';
+    div.textContent = icon + (event.text || '');
+    if (this._pendingEventIndex !== null) div.dataset.eventIndex = this._pendingEventIndex;
+    this.scroll.appendChild(div);
+    this._maybeScroll();
+  },
+
+  // Annotate a text string: returns a DocumentFragment with BLOCKER/WARNING/SUGGESTION/PASS/FAIL
+  // highlighted as coloured spans. Safe — no innerHTML used.
+  _annotateText(text) {
+    var frag = document.createDocumentFragment();
+    var pattern = /\b(BLOCKER|WARNING|SUGGESTION|PASS|FAIL)\b/g;
+    var last = 0, m;
+    var icons  = { BLOCKER: '🚫 ', WARNING: '⚠️ ', SUGGESTION: '💡 ', PASS: '✅ ', FAIL: '❌ ' };
+    var colors = { BLOCKER: 'var(--fail)', WARNING: '#e8850a', SUGGESTION: '#7ec8e3', PASS: '#86efac', FAIL: '#fca5a5' };
+    while ((m = pattern.exec(text)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      var span = document.createElement('span');
+      span.style.color = colors[m[1]];
+      span.style.fontWeight = '700';
+      span.textContent = icons[m[1]] + m[1];
+      frag.appendChild(span);
+      last = m.index + m[1].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    return frag;
+  },
+
+  // Set element content using annotated text (replaces textContent for rich lines)
+  _setAnnotated(el, text) {
+    el.appendChild(this._annotateText(text));
+  },
+
+  _maybeScroll() {
+    if (!this.userScrolled && this.scroll) {
+      this.scroll.scrollTop = this.scroll.scrollHeight;
+    }
+  },
+
+  reset() {
+    if (!this.scroll) return;
+    while (this.scroll.firstChild) this.scroll.removeChild(this.scroll.firstChild);
+    this.userScrolled = false;
+    this._activeAgentId = null;
+    const headerBadge = document.getElementById('active-agent-badge');
+    if (headerBadge) {
+      headerBadge.className = 'console-agent-badge badge-default';
+      headerBadge.textContent = '';
+    }
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE 4: PlaybackEngine
+   Responsibilities: Timed playback, seek, speed, keyboard
+   ══════════════════════════════════════════════════════════════ */
+const PlaybackEngine = {
+  events: [],
+  currentIndex: 0,
+  playing: false,
+  speed: 1,
+  _timer: null,
+  _logData: null,
+
+  init(logData) {
+    this._logData = logData;
+    this.events = logData.events || [];
+    this.currentIndex = 0;
+    this.playing = false;
+    this.speed = 1;
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+
+    // enable controls
+    document.getElementById('btn-play').disabled = false;
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-end').disabled = false;
+    document.getElementById('btn-next-agent').disabled = false;
+    const scrubber = document.getElementById('scrubber');
+    scrubber.disabled = false;
+    scrubber.max = String(Math.max(0, this.events.length - 1));
+    scrubber.value = '0';
+    this._updateCounter();
+  },
+
+  _eventDelay(event) {
+    let ms;
+    switch (event.kind) {
+      case 'pause':      ms = event.ms || 500; break;
+      case 'transition': ms = 600; break;
+      case 'activate':   ms = 200; break;
+      case 'phase':      ms = 800; break;
+      default: {
+        const lines = event.text ? event.text.split('\n').length : 1;
+        ms = Math.max(80, lines * 40);
+        break;
+      }
+    }
+    return Math.max(1, ms / this.speed);
+  },
+
+  play() {
+    if (this.playing) return;
+    if (this.currentIndex >= this.events.length) {
+      // replay from start
+      this.seekTo(0);
+      FlowController.reset();
+      ConsoleRenderer.reset();
+      this.currentIndex = 0;
+    } else if (this._showedRemaining) {
+      // Console has future events from pause preview — rebuild to current position
+      this.seekTo(this.currentIndex > 0 ? this.currentIndex - 1 : 0);
+    }
+    this._showedRemaining = false;
+    this.playing = true;
+    this._updatePlayBtn();
+    this._tick();
+  },
+
+  pause() {
+    this.playing = false;
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    this._updatePlayBtn();
+    // Show remaining console events ahead of current position
+    this._showRemainingLog();
+  },
+
+  _showRemainingLog() {
+    if (!this.events || this.currentIndex >= this.events.length) return;
+    this._showedRemaining = true;
+    // Temporarily disable auto-scroll so console stays at current position
+    var savedScroll = ConsoleRenderer.userScrolled;
+    ConsoleRenderer.userScrolled = true;
+    for (let i = this.currentIndex; i < this.events.length; i++) {
+      var ev = this.events[i];
+      if (ev.kind === 'pause' || ev.kind === 'transition') continue;
+      ConsoleRenderer._pendingEventIndex = i;
+      ConsoleRenderer.renderEvent(ev);
+    }
+    ConsoleRenderer._pendingEventIndex = null;
+    ConsoleRenderer.userScrolled = savedScroll;
+  },
+
+  togglePlay() {
+    if (this.playing) this.pause(); else this.play();
+  },
+
+  _tick() {
+    if (!this.playing) return;
+    if (this.currentIndex >= this.events.length) {
+      this.playing = false;
+      this._updatePlayBtn(true); // show replay icon
+      return;
+    }
+    const event = this.events[this.currentIndex];
+    ConsoleRenderer._pendingEventIndex = this.currentIndex;
+    this._processEvent(event);
+    ConsoleRenderer._pendingEventIndex = null;
+    this.currentIndex++;
+    this._updateScrubber();
+    this._updateCounter();
+    if (this._onProgress) this._onProgress(this.currentIndex);
+    const delay = this._eventDelay(event);
+    this._timer = setTimeout(function() { PlaybackEngine._tick(); }, delay);
+  },
+
+  _processEvent(event) {
+    if (event.kind === 'transition') {
+      if (!event.transition) return;
+      var tData = FlowController.transitionMap[event.transition];
+      if (!tData) return;
+      var tType = (tData && tData.type) || event.type || 'normal';
+      FlowController.animateTransition(event.transition, tType);
+      return;
+    }
+    if (event.kind === 'activate') {
+      FlowController.activateAgent(event.agent);
+      if (event.status) FlowController.updateStatus(event.agent, event.status);
+      ConsoleRenderer.renderEvent(event);
+      return;
+    }
+    if (event.kind === 'phase') {
+      ConsoleRenderer.renderEvent(event);
+      if (event.result === 'start' && event.phase) {
+        FlowController.setPhase(event.phase);
+        ConsoleRenderer.userScrolled = false; // re-enable auto-scroll on phase change
+        // Update flow command label
+        var cmdLabel = document.getElementById('flow-command-label');
+        if (cmdLabel) cmdLabel.textContent = '/' + event.phase.toUpperCase();
+        // Update console prompt bar with phase command
+        var promptBar = document.getElementById('console-prompt-bar');
+        if (promptBar && this._logData && this._logData.commands && this._logData.commands[event.phase]) {
+          promptBar.textContent = this._logData.commands[event.phase];
+          promptBar.classList.add('visible');
+        }
+      }
+      if (event.result === 'end') {
+        FlowController.markAllDone(event.text);
+      }
+      return;
+    }
+    if (event.status && event.agent) {
+      FlowController.updateStatus(event.agent, event.status);
+    }
+    ConsoleRenderer.renderEvent(event);
+  },
+
+  seekTo(index) {
+    // NOTE: seekTo() on large log (>2000 events) may be slow — acceptable for v1.
+    // For v2, consider chunked replay or a snapshot-based approach.
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    const wasPlaying = this.playing;
+    this.playing = false;
+
+    if (index > 2000) {
+      const statusEl = document.getElementById('event-counter');
+      if (statusEl) { const prev = statusEl.textContent; statusEl.textContent = 'Seeking...'; setTimeout(function() { statusEl.textContent = prev; }, 500); }
+    }
+
+    // reset state
+    this._showedRemaining = false;
+    FlowController.reset();
+    ConsoleRenderer.reset();
+
+    // replay 0..index inclusive
+    const n = Math.min(index + 1, this.events.length);
+    for (let i = 0; i < n; i++) {
+      try {
+        ConsoleRenderer._pendingEventIndex = i;
+        this._processEvent(this.events[i]);
+      } catch (e) { console.error('seekTo event ' + i + ':', e, this.events[i]); }
+    }
+    ConsoleRenderer._pendingEventIndex = null;
+    this.currentIndex = n;
+    this._updateScrubber();
+    this._updateCounter();
+    if (this._onProgress) this._onProgress(this.currentIndex);
+
+    if (wasPlaying && n < this.events.length) {
+      this.playing = true;
+      this._updatePlayBtn();
+      this._tick();
+    } else {
+      this._updatePlayBtn(n >= this.events.length);
+    }
+  },
+
+  jumpNextAgent() {
+    let next = this.currentIndex;
+    while (next < this.events.length && this.events[next].kind !== 'activate') {
+      next++;
+    }
+    if (next < this.events.length) {
+      // include the activate event
+      this.seekTo(next + 1);
+    }
+  },
+
+  // Update flow diagram + scrubber to match index, without touching console DOM
+  _seekFlowOnly(index) {
+    FlowController.reset();
+    const n = Math.min(index + 1, this.events.length);
+    for (let i = 0; i < n; i++) {
+      var ev = this.events[i];
+      if (ev.kind === 'transition') {
+        // During seek: only process fail transitions to keep loop count in sync
+        if (ev.transition) {
+          var tData = FlowController.transitionMap[ev.transition];
+          if (tData && tData.type === 'fail' && tData.from === FlowController.criticId) {
+            FlowController._incLoopCount();
+          }
+        }
+      } else if (ev.kind === 'activate') {
+        FlowController.activateAgent(ev.agent);
+        if (ev.status) FlowController.updateStatus(ev.agent, ev.status);
+      } else if (ev.kind === 'phase') {
+        if (ev.result === 'start' && ev.phase) FlowController.setPhase(ev.phase);
+        if (ev.result === 'end') FlowController.markAllDone(ev.text);
+      } else if (ev.status && ev.agent) {
+        FlowController.updateStatus(ev.agent, ev.status);
+      }
+    }
+    this.currentIndex = n;
+    this._updateScrubber();
+    this._updateCounter();
+    if (typeof this._onProgress === 'function') this._onProgress(this.currentIndex);
+  },
+
+  setSpeed(s) {
+    this.speed = s;
+    document.querySelectorAll('.speed-btn').forEach(function(btn) {
+      btn.classList.toggle('active', parseFloat(btn.dataset.speed) === s);
+    });
+  },
+
+  _updatePlayBtn(isEnd) {
+    const btn = document.getElementById('btn-play');
+    if (!btn) return;
+    if (isEnd) {
+      btn.textContent = '↺';
+      btn.setAttribute('aria-label', 'Replay');
+    } else if (this.playing) {
+      btn.textContent = '⏸';
+      btn.setAttribute('aria-label', 'Pause');
+    } else {
+      btn.textContent = '▶';
+      btn.setAttribute('aria-label', 'Play');
+    }
+  },
+
+  _updateScrubber() {
+    const s = document.getElementById('scrubber');
+    if (s) s.value = String(this.currentIndex);
+  },
+
+  _updateCounter() {
+    const c = document.getElementById('event-counter');
+    if (c) c.textContent = this.currentIndex + ' / ' + this.events.length;
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN: Wire everything together
+   ══════════════════════════════════════════════════════════════ */
+async function main() {
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        PlaybackEngine.togglePlay();
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        PlaybackEngine.jumpNextAgent();
+        break;
+      case 'Home':
+        e.preventDefault();
+        PlaybackEngine.seekTo(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        PlaybackEngine.seekTo(PlaybackEngine.events.length - 1);
+        break;
+      case '1': PlaybackEngine.setSpeed(0.25); break;
+      case '2': PlaybackEngine.setSpeed(0.5);  break;
+      case '3': PlaybackEngine.setSpeed(1);    break;
+      case '4': PlaybackEngine.setSpeed(2);    break;
+      case '5': PlaybackEngine.setSpeed(5);    break;
+    }
+  });
+
+  // Jump to beginning
+  document.getElementById('btn-start').addEventListener('click', function() {
+    PlaybackEngine.seekTo(0);
+  });
+
+  // Play/Pause button
+  document.getElementById('btn-play').addEventListener('click', function() {
+    PlaybackEngine.togglePlay();
+  });
+
+  // Jump to end
+  document.getElementById('btn-end').addEventListener('click', function() {
+    PlaybackEngine.seekTo(PlaybackEngine.events.length - 1);
+  });
+
+  // Next agent button
+  document.getElementById('btn-next-agent').addEventListener('click', function() {
+    PlaybackEngine.jumpNextAgent();
+  });
+
+  // Scrubber
+  document.getElementById('scrubber').addEventListener('input', function() {
+    PlaybackEngine.seekTo(parseInt(this.value, 10));
+    // Restore full-log view when paused so scroll↔scrubber sync stays active
+    if (!PlaybackEngine.playing) {
+      PlaybackEngine._showRemainingLog();
+    }
+  });
+
+  // Speed buttons
+  document.querySelectorAll('.speed-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      PlaybackEngine.setSpeed(parseFloat(this.dataset.speed));
+    });
+  });
+
+  // Load log
+  let logData = null;
+  try {
+    logData = await LogLoader.load();
+  } catch (e) {
+    ConsoleRenderer.showError(e.message);
+    document.getElementById('vis-title').textContent = e.message;
+    const subtitleEl = document.getElementById('vis-subtitle');
+    if (subtitleEl) subtitleEl.style.display = 'none';
+    const resultLink = document.getElementById('vis-result-link');
+    if (resultLink) resultLink.style.display = 'none';
+    return;
+  }
+
+  if (!logData) {
+    // landing state — already shown
+    document.getElementById('vis-title').textContent = 'Agent Flow Visualiser';
+    document.getElementById('vis-subtitle').textContent = 'Load a log file with ?logid= or ?url= to begin';
+    const resultLink = document.getElementById('vis-result-link');
+    if (resultLink) resultLink.style.display = 'none';
+    return;
+  }
+
+  // Success — set up everything
+  document.getElementById('vis-title').textContent = logData.title || 'Agent Flow Log';
+  const subtitleEl2 = document.getElementById('vis-subtitle');
+  if (subtitleEl2) {
+    if (logData.subtitle) {
+      subtitleEl2.textContent = logData.subtitle;
+      subtitleEl2.style.display = '';
+    } else {
+      subtitleEl2.style.display = 'none';
+    }
+  }
+  const resultLink2 = document.getElementById('vis-result-link');
+  if (resultLink2) {
+    if (logData.link) {
+      resultLink2.href = logData.link;
+      resultLink2.style.display = 'inline-block';
+    } else {
+      resultLink2.style.display = 'none';
+    }
+  }
+  // Set prompt in console prompt bar
+  if (logData.prompt) {
+    var promptBar = document.getElementById('console-prompt-bar');
+    if (promptBar) {
+      promptBar.textContent = logData.prompt;
+      promptBar.classList.add('visible');
+    }
+  }
+  // Set up timer and cost display
+  var totalDuration = logData.duration_minutes || 0;
+  var totalCost = logData.estimated_cost || 0;
+  var totalEvents = logData.events.length;
+  // Timer/cost update callback — called on each event to show proportional progress
+  PlaybackEngine._onProgress = function(currentIndex) {
+    var progress = totalEvents > 0 ? currentIndex / totalEvents : 0;
+    var elapsed = Math.round(totalDuration * progress);
+    var mins = Math.floor(elapsed);
+    var secs = Math.round((elapsed - mins) * 60);
+    var timerEl = document.getElementById('flow-timer');
+    if (timerEl) timerEl.textContent = mins + ':' + String(secs).padStart(2, '0');
+    var costEl = document.getElementById('flow-cost');
+    if (costEl) costEl.textContent = '$' + (totalCost * progress).toFixed(2);
+  };
+
+  FlowController.init(logData);
+  ConsoleRenderer.init(logData);
+  PlaybackEngine.init(logData);
+  PlaybackEngine.play();
+}
+
+main();
+
+})(); // end IIFE
+</script>
+</body>
+</html>

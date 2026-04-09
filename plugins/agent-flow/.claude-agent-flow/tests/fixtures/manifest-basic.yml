@@ -1,0 +1,32 @@
+version: 2
+source_repo: testorg/test-source
+
+managed_files:
+  - .claude-agent-flow/
+  - .github/workflows/agent-flow-*.yml
+
+merge_files:
+  - path: .claude/settings.json
+    strategy: json-deep-merge
+    managed_keys:
+      - permissions
+      - hooks
+  - path: CLAUDE.md
+    strategy: section-patch
+    managed_sections:
+      - "Agent Flow"
+      - "Backlog Management"
+  - path: .gitignore
+    strategy: append-missing
+    managed_lines:
+      - ".claude/settings.local.json"
+  - path: .gitattributes
+    strategy: append-missing
+    managed_lines:
+      - "* merge=mergiraf"
+
+targets:
+  - repo: testorg/target-enabled
+    enabled: true
+  - repo: testorg/target-disabled
+    enabled: false
