@@ -6,7 +6,7 @@
 #  - Check 4 session-start.sh path resolution steps are present
 #  - Mergiraf platform-guard is specified
 #  - Step 4 summary excludes [SKIP] and [N/A ] from N and M counts
-#  - test-local-install.sh smoke test timeouts are 120 seconds
+#  - test-local-install.sh smoke test timeouts (source repo only — skipped in plugin repo)
 
 setup() {
   load test_helper
@@ -24,6 +24,7 @@ setup() {
 }
 
 @test "test-local-install.sh exists" {
+  [[ -f "$INSTALL_TEST_SH" ]] || skip "test-local-install.sh not present (source repo only)"
   [[ -f "$INSTALL_TEST_SH" ]]
 }
 
@@ -177,6 +178,7 @@ setup() {
 # ── Change E: timeout values in test-local-install.sh ───────────────────────
 
 @test "test-local-install.sh: sandbox smoke test uses 240s timeout" {
+  [[ -f "$INSTALL_TEST_SH" ]] || skip "test-local-install.sh not present (source repo only)"
   local line
   line=$(grep "portable_timeout.*claude.*-p.*diagnostic" "$INSTALL_TEST_SH" | grep -v "\-\-plugin-dir")
   [[ -n "$line" ]]
@@ -184,6 +186,7 @@ setup() {
 }
 
 @test "test-local-install.sh: smoke tests use perl or timeout, not bash background fallback" {
+  [[ -f "$INSTALL_TEST_SH" ]] || skip "test-local-install.sh not present (source repo only)"
   # Verify portable_timeout uses perl alarm+exec as fallback (no background+wait race)
   grep -q 'perl -e' "$INSTALL_TEST_SH"
 }
