@@ -16,9 +16,5 @@
     "development-pipeline",
     "orchestration",
     "claude-code"
-  ],
-  "skills": "./.claude/skills/",
-  "commands": "./.claude/commands/",
-  "agents": "./.claude/agents/",
-  "hooks": "./.claude-agent-flow/hooks/hooks.json"
+  ]
 }
