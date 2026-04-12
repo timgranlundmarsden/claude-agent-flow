@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/.claude-agent-flow/scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | { read -r cmd; case \"$cmd\" in backlog\\ *|backlog) BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi;; esac; } || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.skill // empty' | grep -qiF backlog && { BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi; } || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__*backlog*",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      }
+    ]
+  }
+}
