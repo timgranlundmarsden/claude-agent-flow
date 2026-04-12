@@ -25,7 +25,7 @@ merge_files:
 
   - path: .claude/settings.json
     strategy: json-deep-merge
-    source: settings.json
+    source: .claude/settings.json
     managed_keys:
       - permissions
       - hooks

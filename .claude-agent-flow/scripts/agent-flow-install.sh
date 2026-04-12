@@ -197,20 +197,24 @@ _CONSENT_UTILS="$PLUGIN_DIR/.claude-agent-flow/scripts/lib/consent-utils.sh"
 if [[ -f "$_CONSENT_UTILS" ]]; then
   # shellcheck source=/dev/null
   source "$_CONSENT_UTILS"
-  _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
-  if [[ "$_mg_consent" == "absent" ]]; then
-    migrate_mergiraf_consent "$TARGET_DIR"
+  # Explicit flags always win — write consent before migration check so the
+  # flag result is never overwritten by migration logic.
+  if [[ "$SKIP_MERGIRAF" == true ]]; then
+    consent_write_mergiraf "$TARGET_DIR" "disabled" 2>/dev/null || true
+  elif [[ "$WITH_MERGIRAF" == true ]]; then
+    consent_write_mergiraf "$TARGET_DIR" "enabled" 2>/dev/null || true
+  else
     _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
-  fi
-  if [[ "$_mg_consent" == "absent" ]]; then
-    if [[ "$SKIP_MERGIRAF" == true ]]; then
-      consent_write_mergiraf "$TARGET_DIR" "disabled" 2>/dev/null || true
-    elif [[ "$WITH_MERGIRAF" == true ]]; then
-      consent_write_mergiraf "$TARGET_DIR" "enabled" 2>/dev/null || true
-    elif _tty_available_consent; then
-      _mg_consent="$(prompt_mergiraf_interactive "$TARGET_DIR")"
-    else
-      echo "  Mergiraf: no TTY — skipping (re-run /install to configure)"
+    if [[ "$_mg_consent" == "absent" ]]; then
+      migrate_mergiraf_consent "$TARGET_DIR"
+      _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
+    fi
+    if [[ "$_mg_consent" == "absent" ]]; then
+      if _tty_available_consent; then
+        _mg_consent="$(prompt_mergiraf_interactive "$TARGET_DIR")"
+      else
+        echo "  Mergiraf: no TTY — skipping (re-run /install to configure)"
+      fi
     fi
   fi
 fi
