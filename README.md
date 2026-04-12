@@ -4,11 +4,14 @@ A Claude Code plugin that brings a multi-agent development pipeline to your repo
 
 **[Full documentation →](https://timgranlundmarsden.github.io/claude-agent-flow/)** · **[Jump to installation ↓](#installation)**
 
+> **Note:** This is a Claude Code plugin repository — do not clone it directly.
+> Install it into your project using the `install.sh` script: [Jump to installation ↓](#installation)
+
 ![claude-agent-code.jpg](docs/img/claude-agent-code.jpg)
 
 ---
 
-## Why use this framework/plugin and why did I build it
+## Why use this framework/Claude Code plugin and why did I build it
 
 I started this project because if I am honest I was a bit disappointed with the current crop of AI tooling. As amazing as their results often are, when the model says "I am done", it was always far from done. Maybe you asked for a mobile friendly web page and it turned out that the result wasnt in fact mobile friendly. Or maybe you asked it to fix some code and then on running the tests, you saw that it had made introduced another bug. Either way I was spending too much time hand holding and guiding the models.
 
@@ -145,10 +148,10 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 This prompts you to choose a scope. To skip the prompt, pass `--scope` directly:
 
 ```bash
-# Plugin only (lightest)
+# Claude Code Plugin only (lightest)
 curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope plugin
 
-# Plugin + GitHub Actions
+# Claude Code Plugin + GitHub Actions
 curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope plugin+github
 
 # Sandbox (fully self-contained)
@@ -165,9 +168,68 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 
 ### Prerequisites
 
+**Platform support:**
+
+| Platform | Support | Notes |
+|----------|---------|-------|
+| macOS (Intel & Apple Silicon) | ✓ Supported | |
+| Linux — Ubuntu / Debian | ✓ Supported | |
+| Linux — other distros | ⚠ Untested | Requires apt-get; dnf / yum / pacman not supported |
+| Windows (native) | 🔜 Coming soon | Not yet supported |
+| Windows WSL2 — Ubuntu | ✓ Supported | Run as Ubuntu inside WSL2 |
+
+> Windows users: Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) with Ubuntu, then run the installer from the Ubuntu terminal.
+
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
 - Git repository initialised in your project
 - Node.js 18+ (for MCP servers and Backlog.md)
+
+---
+
+## Permissions & Unattended Use
+
+agent-flow runs multi-agent pipelines that make many tool calls — reading files, running git commands, writing code, executing tests. By default, Claude Code asks for confirmation before each category of action. For interactive use that's fine; for unattended pipelines it becomes a wall of interruptions.
+
+| Mode | When to use | Tradeoff |
+|------|-------------|----------|
+| Default + install overrides | Day-to-day local development | Pre-approves common operations; credential files and mass-delete always blocked |
+| Bypass mode | Unattended local pipelines | No prompts at all; model acts without confirmation but respects denied permissions |
+| Claude for web | Unattended use, any environment | Sandboxed — no filesystem or credential access but still respects denied permissions; safest option |
+
+### Install-time overrides
+
+When you run the installer, you're offered the option to install permission overrides. Accepting sets up two things:
+
+- **Allow list** — pre-approves git commands, file editing, code search, and other operations the framework uses routinely, so they run without prompting
+- **Deny list** (always applied, regardless of your choice) — blocks recursive deletes (`rm -rf`) and prevents reading credential files (`.env`, `~/.ssh`, `~/.aws`)
+
+If you accepted overrides during install, most pipeline operations will run without interruption.
+
+### Bypass mode
+
+To run the pipeline completely unattended with no confirmation prompts, add `"defaultMode": "bypassPermissions"` to the `permissions` block in your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  }
+}
+```
+
+If you already have a `permissions` block (from install-time overrides), add the `defaultMode` line inside the existing block alongside your allow and deny lists.
+
+> **Caution:** Bypass mode removes all permission guardrails on your local machine. The deny rules installed at setup time are no longer enforced. Only enable this if you trust the pipeline, or if you're running in a sandbox where the blast radius is limited. Note: IDE extensions (VS Code, JetBrains) may not honour this setting — it is only reliably supported by the Claude Code CLI.
+
+### Claude for web
+
+The safest way to run agent-flow unattended is [Claude Code for web](https://claude.ai/code). Web sessions run in a sandboxed environment — the model cannot access your local filesystem, credentials, or system tools, so there's no meaningful blast radius.
+
+Install with the `sandbox` scope to get the full pipeline working in this environment:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flow/main/install.sh | bash -s -- --scope sandbox
+```
 
 ---
 
@@ -190,7 +252,7 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | reviewer | Final review pass before completion |
 | author | Documentation and changelog authoring |
 
-### 14 Commands
+### 15 Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -204,6 +266,7 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | `/check-pr` | Check PR status and review comments |
 | `/external-review` | Trigger external LLM code review |
 | `/backlog-list` | List backlog tasks |
+| `/backlog-status` | Backlog snapshot with PR state and QA guide |
 | `/token-analyser` | Analyse token usage and costs |
 | `/sync-plugin-skills` | Sync skills from vendor plugins |
 | `/plugin-repo-sync` | Sync to public plugin repository |
