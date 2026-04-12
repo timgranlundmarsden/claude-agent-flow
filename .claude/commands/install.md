@@ -13,11 +13,15 @@ You are running the agent-flow installation command. Follow these steps:
 
 ### Step 1: Detect Context
 
-Check if this is a fresh install or an update:
-- If `.claude-agent-flow/sync-state.json` exists → this is an **update** (re-sync from source)
-- If it doesn't exist → this is a **fresh install**
+Check the following in order:
+
+1. If `.claude-agent-flow/sync-state.json` exists → this is an **update** (re-sync from source)
+2. If it doesn't exist but `.claude-agent-flow/scripts/agent-flow-install.sh` exists → this is a **fresh clone of the plugin repo** — auto-select `sandbox` scope and skip Step 1.5 entirely (do not ask the user)
+3. Otherwise → this is a **fresh install** into a new repo
 
 ### Step 1.5: Select Scope
+
+Skip this step entirely if scope was auto-selected in Step 1 (plugin repo clone case).
 
 Present the scope options to the user using `AskUserQuestion`. For **updates**, first read the current scope from `.claude-agent-flow/sync-state.json` (field: `scope`, default: `"plugin"` if absent) and offer to keep or change it.
 
