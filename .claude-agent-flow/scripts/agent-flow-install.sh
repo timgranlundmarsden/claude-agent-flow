@@ -23,6 +23,8 @@ SCOPE=""
 AUTO_UPDATE=false
 PLUGIN_DIR=""
 SKIP_PERMISSIONS=false
+SKIP_MERGIRAF=false
+WITH_MERGIRAF=false
 MARKETPLACE_NAME="timgranlundmarsden"
 MARKETPLACE_REPO="timgranlundmarsden/claude-code-plugins"
 
@@ -36,6 +38,8 @@ while [[ $# -gt 0 ]]; do
     --auto-update) AUTO_UPDATE=true; shift ;;
     --plugin-dir) [[ $# -lt 2 ]] && { echo "Error: --plugin-dir requires a value" >&2; exit 1; }; PLUGIN_DIR="$2"; shift 2 ;;
     --skip-permissions) SKIP_PERMISSIONS=true; shift ;;
+    --skip-mergiraf) SKIP_MERGIRAF=true; shift ;;
+    --with-mergiraf) WITH_MERGIRAF=true; shift ;;
     --marketplace-name) [[ $# -lt 2 ]] && { echo "Error: --marketplace-name requires a value" >&2; exit 1; }; MARKETPLACE_NAME="$2"; shift 2 ;;
     --marketplace-repo) [[ $# -lt 2 ]] && { echo "Error: --marketplace-repo requires a value" >&2; exit 1; }; MARKETPLACE_REPO="$2"; shift 2 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -184,6 +188,33 @@ yaml_scalar() {
     }
   ' "$file"
 }
+
+# ── Mergiraf consent ──
+# Prompt if consent is absent and no flag was passed. When called via install.sh,
+# that script writes consent first so this block is a no-op (consent not absent).
+# When called directly (e.g. /install command), this is where the user is asked.
+_CONSENT_UTILS="$PLUGIN_DIR/.claude-agent-flow/scripts/lib/consent-utils.sh"
+if [[ -f "$_CONSENT_UTILS" ]]; then
+  # shellcheck source=/dev/null
+  source "$_CONSENT_UTILS"
+  CONSENT_UTILS_LOADED=1
+  _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
+  if [[ "$_mg_consent" == "absent" ]]; then
+    migrate_mergiraf_consent "$TARGET_DIR"
+    _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
+  fi
+  if [[ "$_mg_consent" == "absent" ]]; then
+    if [[ "$SKIP_MERGIRAF" == true ]]; then
+      consent_write_mergiraf "$TARGET_DIR" "disabled" 2>/dev/null || true
+    elif [[ "$WITH_MERGIRAF" == true ]]; then
+      consent_write_mergiraf "$TARGET_DIR" "enabled" 2>/dev/null || true
+    elif _tty_available_consent; then
+      _mg_consent="$(prompt_mergiraf_interactive "$TARGET_DIR")"
+    else
+      echo "  Mergiraf: no TTY — skipping (re-run /install to configure)"
+    fi
+  fi
+fi
 
 # ── Process merge_files from install-manifest ──
 echo "Processing merge operations..."

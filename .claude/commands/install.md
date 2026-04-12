@@ -67,13 +67,29 @@ Store the result. If the user chose "No, skip permission overrides", set a varia
 
 **Always ask this question on every install/update** — do not remember or assume the previous answer.
 
+### Step 1.8: Mergiraf Consent
+
+Ask the user using `AskUserQuestion`:
+
+> Mergiraf is a syntax-aware merge conflict resolver. When enabled, git will use it as the merge driver for this repo — resulting in fewer conflict markers and smarter auto-resolution of code changes. Scope: this repository only.
+>
+> Would you like to enable Mergiraf for this repo?
+
+Options:
+- **Yes, enable Mergiraf** — smarter merge conflict resolution
+- **No, skip Mergiraf** — use standard git merge
+
+Store the result as `mergiraf_flag`: `--with-mergiraf` if yes, `--skip-mergiraf` if no. Append it to all `agent-flow-install.sh` invocations in Step 2.
+
+**Always ask this question on every fresh install.** For updates, skip it — consent is already recorded.
+
 ### Step 2: Run the Install Script
 
 Run the appropriate command, passing the chosen scope:
 
 **Fresh install:**
 ```bash
-bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope>
+bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope> <mergiraf_flag>
 ```
 
 **Update:**
