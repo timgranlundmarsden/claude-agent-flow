@@ -49,6 +49,8 @@ Store the chosen scope as a variable (one of: `plugin`, `plugin+github`, `sandbo
 
 ### Step 1.7: Permission Overrides Consent
 
+Skip this step entirely if scope was auto-selected in Step 1 (plugin repo clone case) — the settings are already configured in the clone, and merge operations are skipped anyway. Set `skip_permissions=true` implicitly.
+
 Ask the user whether they want Agent Flow to install permission overrides using `AskUserQuestion`. Use this exact wording:
 
 > Agent Flow can install permission overrides in your project settings that allow common operations (git commands, file editing, code search) to run without prompting you each time. This makes the workflow smoother but means those tools won't ask for confirmation.

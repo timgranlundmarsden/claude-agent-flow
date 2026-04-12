@@ -58,6 +58,16 @@ if [[ -z "$PLUGIN_DIR" ]]; then
   PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 fi
 
+# ── Self-install detection ──
+# When PLUGIN_DIR == TARGET_DIR (running install from within the plugin repo clone),
+# all files are already in place. Skip merge and copy operations; only run
+# backlog init, sync-state creation, and Mergiraf setup.
+SELF_INSTALL=false
+if [[ "$(realpath "$PLUGIN_DIR" 2>/dev/null || echo "$PLUGIN_DIR")" == \
+      "$(realpath "$TARGET_DIR" 2>/dev/null || echo "$TARGET_DIR")" ]]; then
+  SELF_INSTALL=true
+fi
+
 INSTALL_MANIFEST="$PLUGIN_DIR/.claude-agent-flow/install-manifest.yml"
 if [[ ! -f "$INSTALL_MANIFEST" ]]; then
   echo "Error: install-manifest.yml not found at $INSTALL_MANIFEST" >&2
@@ -249,6 +259,18 @@ execute_merge() {
   local target_file="$TARGET_DIR/$path"
   local source_file=""
   [[ -n "$source" ]] && source_file="$PLUGIN_DIR/$source"
+
+  # In self-install mode (PLUGIN_DIR == TARGET_DIR), skip strategies that
+  # modify existing files — they are already correct in the clone.
+  # Allow template and create-only through (they create new files if absent).
+  if $SELF_INSTALL; then
+    case "$strategy" in
+      section-patch|json-deep-merge|append-missing)
+        echo "  [skip] $path (self-install — already in place)"
+        return 0
+        ;;
+    esac
+  fi
 
   case "$strategy" in
     section-patch)
@@ -456,7 +478,7 @@ fi
 # ── Scope-dependent operations ──
 
 # Plugin+GitHub + Sandbox: copy workflow files
-if [[ "$SCOPE" == "plugin+github" || "$SCOPE" == "sandbox" ]]; then
+if ! $SELF_INSTALL && [[ "$SCOPE" == "plugin+github" || "$SCOPE" == "sandbox" ]]; then
   echo ""
   echo "Copying GitHub Actions workflows (scope: $SCOPE)..."
   WF_SOURCE_REL=$(awk '/^workflow_files:/{found=1;next} found && /^[[:space:]]+source:/{val=$0; sub(/.*source:[[:space:]]*/, "", val); gsub(/"/, "", val); print val; exit}' "$INSTALL_MANIFEST")
@@ -502,7 +524,7 @@ if [[ "$SCOPE" == "sandbox" && "$SKIP_PERMISSIONS" == true ]]; then
 fi
 
 # Sandbox: reverse-map plugin layout to master layout
-if [[ "$SCOPE" == "sandbox" ]]; then
+if ! $SELF_INSTALL && [[ "$SCOPE" == "sandbox" ]]; then
   echo ""
   echo "Installing sandbox mode (full agent-flow tree)..."
 
