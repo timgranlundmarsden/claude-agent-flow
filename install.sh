@@ -174,7 +174,7 @@ print_optional_tools_hint() {
   if [[ "$mg_skipped" == true ]]; then
     hint="Skipping Mergiraf installation. Use --with-mergiraf to include it."
   fi
-  [[ -n "$hint" ]] && echo "  $hint"
+  if [[ -n "$hint" ]]; then echo "  $hint"; fi
 }
 
 # ── Validate scope if provided ──

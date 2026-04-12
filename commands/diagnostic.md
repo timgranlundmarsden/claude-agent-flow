@@ -42,7 +42,7 @@ Plugin path: <plugin_path>
 - **Version:** Read `last_synced_version` from sync-state.json. If missing, try `version` field. If still missing, show "Unknown".
 - **Source repo:** Read `source_repo` from sync-state.json. If missing, try `source_repo` from `repo-sync-manifest.yml`. If still missing, show "Unknown".
 - **Synced at:** Read `synced_at` from sync-state.json. If missing, try `installedAt`. If still missing, show "Unknown".
-- **Plugin path / Install path:** For sandbox mode, run `git rev-parse --show-toplevel` via Bash to get the repo root and show it with label "Install path". For plugin/plugin+github modes, read the `enabledPlugins` keys from `.claude/settings.json` — find the key containing "agent-flow", then show `~/.claude/plugins/<plugin-key>` with label "Plugin path". If no agent-flow key found, show "Unknown". 
+- **Plugin path / Install path:** For sandbox mode, run `git rev-parse --show-toplevel` via Bash to get the repo root and show it with label "Install path". For plugin/plugin+github modes, search for an `enabledPlugins` key containing "agent-flow" in `.claude/settings.local.json` first, then `.claude/settings.json`, then `~/.claude/settings.json`. Show `~/.claude/plugins/<plugin-key>` with label "Plugin path". If no agent-flow key found in any, show "Unknown".
 
 **Sync role line** (conditional — only show if one applies):
 - If current repo has `.claude-agent-flow/repo-sync-manifest.yml` with a `targets:` section containing entries → add line: `Sync role: Source (upstream master)`
@@ -63,6 +63,10 @@ Verify `.claude-agent-flow/sync-state.json` exists and is valid JSON. Then apply
 ```
 or
 ```
+[FAIL] Initialised: sync-state.json not found — run /agent-flow:install to initialise
+```
+or (for other failure reasons):
+```
 [FAIL] Initialised: <reason>
 ```
 
@@ -73,10 +77,28 @@ Verify CLAUDE.md exists and contains these managed section headings: `## Backlog
 ```
 
 **Check 3: Plugin registration**
-For Plugin/Plugin+GH modes (plugin/plugin+github scope): Check `.claude/settings.json` has an `enabledPlugins` key with at least one agent-flow-related entry (key containing "agent-flow").
 For Sandbox mode: Output `[N/A ] Plugin registration: sandbox mode uses vendored local files`.
+For Plugin/Plugin+GH modes (plugin/plugin+github scope): Check for an `enabledPlugins` key containing "agent-flow" in ANY of these files (check all, PASS if found in any):
+1. `.claude/settings.local.json` — Claude Code writes plugin activation here (gitignored, user-specific)
+2. `.claude/settings.json` — project-level override
+3. `~/.claude/settings.json` — global settings
+
+The most common location for a marketplace/GitHub plugin install is `.claude/settings.local.json`. Check it first.
+
 ```
-[PASS] Plugin registration: agent-flow plugin enabled
+[PASS] Plugin registration: agent-flow plugin enabled (settings.local.json)
+```
+or
+```
+[PASS] Plugin registration: agent-flow plugin enabled (settings.json)
+```
+or
+```
+[PASS] Plugin registration: agent-flow plugin enabled (global settings)
+```
+or
+```
+[FAIL] Plugin registration: no agent-flow key found in enabledPlugins (checked settings.local.json, settings.json, ~/.claude/settings.json)
 ```
 
 **Check 4: Session start tools**

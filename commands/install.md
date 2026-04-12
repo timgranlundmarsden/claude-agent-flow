@@ -63,7 +63,9 @@ Options:
 - **Yes, install permission overrides** — common operations run without prompting
 - **No, skip permission overrides** — you'll be prompted for each operation
 
-Store the result. If the user chose "No, skip permission overrides", set a variable `skip_permissions=true` and append `--skip-permissions` to all `agent-flow-install.sh` invocations in Step 2.
+Store the result:
+- If the user chose **Yes**: set a variable `permissions_flag=--with-permissions` and append it to all `agent-flow-install.sh` invocations in Step 2. This is required because Claude runs without a TTY and the install script skips permissions by default in non-terminal environments.
+- If the user chose **No**: set `permissions_flag=--skip-permissions` and append it instead.
 
 **Always ask this question on every install/update** — do not remember or assume the previous answer.
 
@@ -97,12 +99,11 @@ bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope> <me
 bash .claude-agent-flow/scripts/agent-flow-install.sh --update --scope <chosen_scope>
 ```
 
-If the user declined permission overrides in Step 1.7, append `--skip-permissions` to the command. For example:
+Always append the `permissions_flag` variable to every install command — whether `--with-permissions` (yes) or `--skip-permissions` (no):
 ```bash
-bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope> --skip-permissions
+bash .claude-agent-flow/scripts/agent-flow-install.sh --scope <chosen_scope> <permissions_flag> <mergiraf_flag>
 ```
-
-Similarly for all other invocation methods (curl-based and dynamic install). Append `--skip-permissions` to the curl/bash commands shown in Method 1 and Method 2 as well.
+Apply to all invocation methods (local script, curl-based, dynamic install).
 
 The script auto-detects the project name from the repo folder. No `--project-name` flag needed.
 
