@@ -197,7 +197,6 @@ _CONSENT_UTILS="$PLUGIN_DIR/.claude-agent-flow/scripts/lib/consent-utils.sh"
 if [[ -f "$_CONSENT_UTILS" ]]; then
   # shellcheck source=/dev/null
   source "$_CONSENT_UTILS"
-  CONSENT_UTILS_LOADED=1
   _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
   if [[ "$_mg_consent" == "absent" ]]; then
     migrate_mergiraf_consent "$TARGET_DIR"
@@ -555,7 +554,10 @@ if [[ "$SCOPE" == "sandbox" && "$SKIP_PERMISSIONS" == true ]]; then
 fi
 
 # Sandbox: reverse-map plugin layout to master layout
-if ! $SELF_INSTALL && [[ "$SCOPE" == "sandbox" ]]; then
+if $SELF_INSTALL && [[ "$SCOPE" == "sandbox" ]]; then
+  echo ""
+  echo "Sandbox file copy skipped — files already in place (self-install)"
+elif [[ "$SCOPE" == "sandbox" ]]; then
   echo ""
   echo "Installing sandbox mode (full agent-flow tree)..."
 
