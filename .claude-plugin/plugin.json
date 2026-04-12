@@ -1,6 +1,6 @@
 {
   "name": "agent-flow",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Multi-agent development pipeline for Claude Code — 12 specialist agents, 13 slash commands, 18 skills, adversarial critic loop, and automated sync distribution. Drop-in plugin that adds /plan, /build, /review workflows with explorer, architect, builder, critic, tester, and reviewer agents.",
   "author": {
     "name": "Tim Granlund Marsden",
@@ -16,9 +16,5 @@
     "development-pipeline",
     "orchestration",
     "claude-code"
-  ],
-  "skills": "./.claude/skills/",
-  "commands": "./.claude/commands/",
-  "agents": "./.claude/agents/",
-  "hooks": "./.claude-agent-flow/hooks/hooks.json"
+  ]
 }
