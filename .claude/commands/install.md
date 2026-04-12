@@ -128,7 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 ### Step 3: Review and Commit
 
 After the script completes:
-1. Show the user a summary of what was installed/updated using `git diff --stat`
+1. Show the user a summary of what was installed/updated using `git status --short` (not `git diff --stat` — this misses new untracked files created by the install script)
 2. Ask if they want to commit the changes
 3. If yes, commit with message: `feat: install agent-flow system` (fresh) or `feat: update agent-flow system` (update)
 
