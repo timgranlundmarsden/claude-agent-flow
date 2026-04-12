@@ -87,11 +87,11 @@ workflow_files:
 # Reverse-maps plugin layout back to master layout in user's repo
 # so the full agent-flow system works offline / in web environments
 sandbox_mappings:
-  - source: .claude/agents/
+  - source: agents/
     target: .claude/agents/
-  - source: .claude/commands/
+  - source: commands/
     target: .claude/commands/
-  - source: .claude/skills/
+  - source: skills/
     target: .claude/skills/
   - source: .claude/settings.json
     target: .claude/settings.json

@@ -2,7 +2,7 @@
 #
 # Runs on PRs and pushes to main. Checks structure, required files,
 # no leaked master-only files, valid JSON, and no unresolved placeholders.
-# Designed for the flat dual-use plugin repo layout.
+# Designed for the root-level plugin repo layout.
 # In the master repo this workflow is a no-op (paths filter won't match).
 
 name: Plugin Distribution Tests
@@ -61,7 +61,7 @@ jobs:
       - name: Required directories exist
         run: |
           failed=0
-          for dir in .claude/agents .claude/commands .claude/skills .claude-plugin .claude-agent-flow; do
+          for dir in agents commands skills .claude-plugin .claude-agent-flow; do
             if [[ ! -d "$dir" ]]; then
               echo "FAIL: missing directory $dir"
               failed=1
@@ -92,6 +92,25 @@ jobs:
           done
           exit $failed
 
+      - name: hooks/hooks.json exists
+        run: |
+          if [[ ! -f "hooks/hooks.json" ]]; then
+            echo "FAIL: missing hooks/hooks.json"
+            exit 1
+          fi
+          echo "OK: hooks/hooks.json present"
+
+      - name: compat symlinks exist under .claude/
+        run: |
+          failed=0
+          for dir in agents commands skills; do
+            if [[ ! -L ".claude/$dir" ]]; then
+              echo "FAIL: .claude/$dir is not a symlink"
+              failed=1
+            fi
+          done
+          exit $failed
+
       # ── Master-only files must NOT be present ─────────────────────
 
       - name: No master-only files leaked
@@ -101,6 +120,7 @@ jobs:
             ".claude/commands/plugin-repo-sync.md"
             ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
             ".claude-agent-flow/docs/plugin-repo-sync.md"
+            ".claude-agent-flow/docs/plugin-repo-sync-migration.md"
             ".claude-agent-flow/publish-plugin-manifest.yml"
           )
           for f in "${leaked[@]}"; do
@@ -125,17 +145,6 @@ jobs:
             fi
           done
           echo "OK: plugin.json is valid with required fields"
-
-      - name: Assert plugin.json path overrides exist
-        run: |
-          PLUGIN_JSON=".claude-plugin/plugin.json"
-          for field in skills commands agents hooks; do
-            if ! jq -e ".$field" "$PLUGIN_JSON" > /dev/null 2>&1; then
-              echo "ERROR: $PLUGIN_JSON missing required field: $field"
-              exit 1
-            fi
-          done
-          echo "All four path override fields present in $PLUGIN_JSON"
 
       - name: settings.json is valid
         run: jq empty ".claude/settings.json"
@@ -217,7 +226,7 @@ jobs:
 
       - name: Agents directory has content
         run: |
-          count=$(find ".claude/agents" -name '*.md' | wc -l)
+          count=$(find "agents" -name '*.md' | wc -l)
           if [[ "$count" -lt 1 ]]; then
             echo "FAIL: no agent definitions found"
             exit 1
@@ -226,7 +235,7 @@ jobs:
 
       - name: Commands directory has content
         run: |
-          count=$(find ".claude/commands" -name '*.md' | wc -l)
+          count=$(find "commands" -name '*.md' | wc -l)
           if [[ "$count" -lt 1 ]]; then
             echo "FAIL: no command definitions found"
             exit 1
@@ -235,7 +244,7 @@ jobs:
 
       - name: Skills directory has content
         run: |
-          count=$(find ".claude/skills" -name 'SKILL.md' | wc -l)
+          count=$(find "skills" -name 'SKILL.md' | wc -l)
           if [[ "$count" -lt 1 ]]; then
             echo "FAIL: no skill definitions found"
             exit 1

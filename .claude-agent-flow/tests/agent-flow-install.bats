@@ -223,22 +223,41 @@ EOF
 
 # ── AC #16: self-clone + init-check guard tests ───────────────────────────────
 
-@test "14. workspace mode: fresh clone of flat plugin repo has agents and commands but no sync-state.json" {
-  # Simulate the flat plugin repo layout after plugin-repo-sync runs.
-  # The repo has .claude/agents/, .claude/commands/, etc. at the root level.
+@test "14. workspace mode: fresh clone of root-level plugin repo has root agents/, commands/, skills/ dirs and .claude symlinks" {
+  # Simulate the root-level plugin repo layout after plugin-repo-sync runs.
+  # The repo has agents/, commands/, skills/ at the root level (real dirs),
+  # and .claude/agents, .claude/commands, .claude/skills as symlinks pointing to them.
   # sync-state.json should NOT exist because install has not been run yet.
-  local clone_dir="$BATS_TEST_TMPDIR/flat-plugin-clone"
-  mkdir -p "$clone_dir/.claude/agents"
-  mkdir -p "$clone_dir/.claude/commands"
-  mkdir -p "$clone_dir/.claude/skills"
-  echo "# Explorer" > "$clone_dir/.claude/agents/explorer.md"
-  echo "# Build" > "$clone_dir/.claude/commands/build.md"
+  local clone_dir="$BATS_TEST_TMPDIR/root-plugin-clone"
+
+  # Root-level real directories
+  mkdir -p "$clone_dir/agents"
+  mkdir -p "$clone_dir/commands"
+  mkdir -p "$clone_dir/skills"
+  echo "# Explorer" > "$clone_dir/agents/explorer.md"
+  echo "# Build" > "$clone_dir/commands/build.md"
+
+  # .claude/ dir with symlinks pointing to root-level dirs
+  mkdir -p "$clone_dir/.claude"
+  ln -snf "../agents"   "$clone_dir/.claude/agents"
+  ln -snf "../commands" "$clone_dir/.claude/commands"
+  ln -snf "../skills"   "$clone_dir/.claude/skills"
+
   mkdir -p "$clone_dir/.claude-agent-flow"
   echo "version: 1" > "$clone_dir/.claude-agent-flow/repo-sync-manifest.yml"
 
-  # Workspace is ready: all key directories exist
-  [[ -d "$clone_dir/.claude/agents" ]]
-  [[ -d "$clone_dir/.claude/commands" ]]
+  # Root-level real directories must exist
+  [[ -d "$clone_dir/agents" ]]
+  [[ -d "$clone_dir/commands" ]]
+  [[ -d "$clone_dir/skills" ]]
+  [[ -f "$clone_dir/agents/explorer.md" ]]
+
+  # .claude/agents, .claude/commands, .claude/skills must be symlinks
+  [[ -L "$clone_dir/.claude/agents" ]]
+  [[ -L "$clone_dir/.claude/commands" ]]
+  [[ -L "$clone_dir/.claude/skills" ]]
+
+  # Symlinks must resolve correctly
   [[ -f "$clone_dir/.claude/agents/explorer.md" ]]
 
   # sync-state.json must NOT exist on a fresh clone (install has not been run)
@@ -258,7 +277,7 @@ EOF
 version: 1
 merge_files: []
 sandbox_mappings:
-  - source: .claude/agents/
+  - source: agents/
     target: .claude/agents/
 YAML
 
@@ -314,4 +333,24 @@ YAML
   is_initialized=false
   [[ -f "$user_repo/.claude-agent-flow/sync-state.json" ]] && is_initialized=true
   [[ "$is_initialized" == "true" ]]
+}
+
+
+# ── AC: install-manifest.yml sandbox_mappings use root-level source paths ─────
+@test "17. install-manifest.yml sandbox_mappings source paths are root-level (agents/, commands/, skills/)" {
+  local manifest="$BATS_TEST_DIRNAME/../install-manifest.yml"
+  [[ -f "$manifest" ]]
+
+  # Extract all sandbox_mappings source paths and verify root-level layout
+  local sources
+  sources=$(awk '/^sandbox_mappings:/,0' "$manifest" | grep '^ *- source:' | sed 's/.*source: *//')
+
+  [[ "$sources" == *"agents/"* ]]
+  [[ "$sources" == *"commands/"* ]]
+  [[ "$sources" == *"skills/"* ]]
+
+  # Must NOT contain old .claude/ prefixed sources
+  [[ "$sources" != *".claude/agents/"* ]]
+  [[ "$sources" != *".claude/commands/"* ]]
+  [[ "$sources" != *".claude/skills/"* ]]
 }
