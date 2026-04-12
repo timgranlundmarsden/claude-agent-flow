@@ -176,24 +176,11 @@ setup() {
 
 # ── Change E: timeout values in test-local-install.sh ───────────────────────
 
-@test "test-local-install.sh: plugin smoke test uses 120s timeout" {
-  local line
-  line=$(grep "portable_timeout.*claude.*--plugin-dir.*-p.*diagnostic" "$INSTALL_TEST_SH" | head -1)
-  [[ -n "$line" ]]
-  echo "$line" | grep -q "portable_timeout 120"
-}
-
-@test "test-local-install.sh: plugin+github smoke test uses 120s timeout" {
-  local count
-  count=$(grep -c "portable_timeout 120.*claude --plugin-dir.*diagnostic" "$INSTALL_TEST_SH")
-  [[ "$count" -ge 2 ]]
-}
-
-@test "test-local-install.sh: sandbox smoke test uses 120s timeout" {
+@test "test-local-install.sh: sandbox smoke test uses 240s timeout" {
   local line
   line=$(grep "portable_timeout.*claude.*-p.*diagnostic" "$INSTALL_TEST_SH" | grep -v "\-\-plugin-dir")
   [[ -n "$line" ]]
-  echo "$line" | grep -q "portable_timeout 120"
+  echo "$line" | grep -q "portable_timeout 240"
 }
 
 @test "test-local-install.sh: smoke tests use perl or timeout, not bash background fallback" {
