@@ -194,5 +194,7 @@ If you don't see them in your file explorer, enable "Show hidden files".
 
 ---
 
+**Tip:** For fully autonomous multi-agent runs with no per-tool prompts, add `"defaultMode": "bypassPermissions"` to `.claude/settings.local.json` (gitignored — applies to your machine only). Only recommended for trusted repos where you're comfortable with autonomous tool use.
+
 Next step: `/plan Make me a html web page`
 ```
