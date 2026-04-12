@@ -1,0 +1,144 @@
+# This workflow is opt-in. Set repository variable AGENT_FLOW_AUTO_MERGE_PLANNING=true to enable.
+# See docs for setup instructions.
+
+name: Auto-Merge Planning-Only PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+    paths:
+      - 'backlog/**'
+      - 'plans/**'
+
+concurrency:
+  group: auto-merge-planning-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  skip-if-not-enabled:
+    if: vars.AGENT_FLOW_AUTO_MERGE_PLANNING != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Skipping: set repository variable AGENT_FLOW_AUTO_MERGE_PLANNING=true to enable auto-merge of planning-only PRs."
+          echo "See docs for setup instructions."
+
+  auto-merge:
+    if: vars.AGENT_FLOW_AUTO_MERGE_PLANNING == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate and auto-merge planning-only PR
+        env:
+          SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Step (a): Validate token
+          if [[ -z "${SYNC_TOKEN}" ]]; then
+            echo "AGENT_FLOW_SYNC_TOKEN not configured — skipping auto-merge"
+            exit 0
+          fi
+
+          # Step (b): Paginated file list — up to 4 pages of 100 files
+          ALL_FILES=""
+          for PAGE in 1 2 3 4; do
+            PAGE_RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -H "Authorization: token ${SYNC_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GH_REPO}/pulls/${PR_NUMBER}/files?per_page=100&page=${PAGE}") || {
+              echo "Network error listing PR files — skipping auto-merge"
+              exit 0
+            }
+            PAGE_HTTP=$(echo "${PAGE_RESPONSE}" | tail -1)
+            PAGE_BODY=$(echo "${PAGE_RESPONSE}" | head -n -1)
+            if [[ "${PAGE_HTTP}" != "200" ]]; then
+              echo "GitHub API returned HTTP ${PAGE_HTTP} listing files — skipping auto-merge"
+              exit 0
+            fi
+            PAGE_FILES=$(echo "${PAGE_BODY}" | jq -r 'if type == "array" then .[].filename else empty end' 2>/dev/null) || {
+              echo "Unexpected API response format — skipping auto-merge"
+              exit 0
+            }
+            COUNT=$(echo "${PAGE_BODY}" | jq 'if type == "array" then length else 0 end' 2>/dev/null) || COUNT=0
+            if [[ -z "${PAGE_FILES}" ]]; then
+              break
+            fi
+            if [[ "${COUNT}" -lt 100 ]]; then
+              ALL_FILES="${ALL_FILES}${PAGE_FILES}"$'\n'
+              break
+            fi
+            if [[ "${PAGE}" -eq 4 ]]; then
+              echo "PR has >400 files — skipping auto-merge, requires human review"
+              exit 0
+            fi
+            ALL_FILES="${ALL_FILES}${PAGE_FILES}"$'\n'
+          done
+
+          # Step (c): Handle empty file list
+          if [[ -z "$(echo "${ALL_FILES}" | tr -d '[:space:]')" ]]; then
+            echo "No files found in PR — skipping auto-merge"
+            exit 0
+          fi
+
+          # Step (d): Validate ALL files are under backlog/ or plans/
+          while IFS= read -r FILE; do
+            [[ -z "${FILE}" ]] && continue
+            if ! echo "${FILE}" | grep -qE '^(backlog/|plans/)'; then
+              echo "PR contains non-planning file: ${FILE} — skipping auto-merge"
+              exit 0
+            fi
+          done <<< "${ALL_FILES}"
+
+          # Step (e): Squash-merge the PR
+          MERGE_PAYLOAD=$(jq -n \
+            --arg merge_method "squash" \
+            --arg sha "${HEAD_SHA}" \
+            --arg commit_title "${PR_TITLE} (#${PR_NUMBER})" \
+            '{merge_method: $merge_method, sha: $sha, commit_title: $commit_title}')
+
+          MERGE_RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+            -H "Authorization: token ${SYNC_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${GH_REPO}/pulls/${PR_NUMBER}/merge" \
+            -d "${MERGE_PAYLOAD}") || {
+            echo "Network error calling merge API — falling through to human review"
+            exit 0
+          }
+
+          HTTP_CODE=$(echo "${MERGE_RESPONSE}" | tail -1)
+          RESPONSE_BODY=$(echo "${MERGE_RESPONSE}" | head -n -1)
+
+          # Step (f): Handle HTTP response codes
+          case "${HTTP_CODE}" in
+            200)
+              echo "Successfully auto-merged PR #${PR_NUMBER}"
+              ;;
+            405)
+              echo "Merge not allowed (HTTP 405) — token may lack bypass permission; falling through to human review"
+              exit 0
+              ;;
+            409)
+              echo "Merge conflict or SHA mismatch (HTTP 409) — leaving PR open for human resolution"
+              exit 0
+              ;;
+            422)
+              echo "Merge validation failed (HTTP 422) — falling through to human review"
+              exit 0
+              ;;
+            *)
+              echo "Unexpected HTTP ${HTTP_CODE} from merge API: ${RESPONSE_BODY} — falling through to human review"
+              exit 0
+              ;;
+          esac

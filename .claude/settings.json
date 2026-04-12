@@ -1,0 +1,176 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/skills/:*)",
+      "Bash(awk:*)",
+      "Bash(backlog:*)",
+      "Bash(cat:*)",
+      "Bash(chmod:*)",
+      "Bash(command:*)",
+      "Bash(cut:*)",
+      "Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(kill:*)",
+      "Bash(ls:*)",
+      "Bash(playwright-cli:*)",
+      "Bash(printf:*)",
+      "Bash(pwd:*)",
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(sort:*)",
+      "Bash(tail:*)",
+      "Bash(tr:*)",
+      "Bash(uname:*)",
+      "Bash(uniq:*)",
+      "Bash(wc:*)",
+      "Bash(where:*)",
+      "Bash(which:*)",
+      "Bash(rm -rf .claude-agent-flow/bin:*)",
+      "Bash(rm -rf /tmp/agent-flow:*)",
+      "Edit",
+      "Glob",
+      "Grep",
+      "LS",
+      "List",
+      "Read",
+      "Skill(playwright-cli)",
+      "Skill(playwright-cli-helpers)",
+      "Skill(update-config)",
+      "Write",
+      "mcp__backlog__definition_of_done_defaults_get",
+      "mcp__backlog__definition_of_done_defaults_upsert",
+      "mcp__backlog__document_create",
+      "mcp__backlog__document_list",
+      "mcp__backlog__document_search",
+      "mcp__backlog__document_update",
+      "mcp__backlog__document_view",
+      "mcp__backlog__get_task_creation_guide",
+      "mcp__backlog__get_task_execution_guide",
+      "mcp__backlog__get_task_finalization_guide",
+      "mcp__backlog__get_workflow_overview",
+      "mcp__backlog__milestone_add",
+      "mcp__backlog__milestone_archive",
+      "mcp__backlog__milestone_list",
+      "mcp__backlog__milestone_remove",
+      "mcp__backlog__milestone_rename",
+      "mcp__backlog__task_archive",
+      "mcp__backlog__task_complete",
+      "mcp__backlog__task_create",
+      "mcp__backlog__task_edit",
+      "mcp__backlog__task_list",
+      "mcp__backlog__task_search",
+      "mcp__backlog__task_view"
+    ],
+    "deny": [
+      "Bash(awk *.env*:*)",
+      "Bash(awk */.env*:*)",
+      "Bash(awk *~/.aws/*:*)",
+      "Bash(awk *~/.ssh/*:*)",
+      "Bash(cat */.env*:*)",
+      "Bash(cat .env*:*)",
+      "Bash(cat ~/.aws/*:*)",
+      "Bash(cat ~/.ssh/*:*)",
+      "Bash(find*-delete:*)",
+      "Bash(find*-exec rm:*)",
+      "Bash(find*xargs rm:*)",
+      "Bash(grep *.env*:*)",
+      "Bash(grep */.env*:*)",
+      "Bash(grep *~/.aws/*:*)",
+      "Bash(grep *~/.ssh/*:*)",
+      "Bash(head */.env*:*)",
+      "Bash(head .env*:*)",
+      "Bash(head ~/.aws/*:*)",
+      "Bash(head ~/.ssh/*:*)",
+      "Bash(rm --recursive:*)",
+      "Bash(rm -R :*)",
+      "Bash(rm -RF:*)",
+      "Bash(rm -Rf:*)",
+      "Bash(rm -fR:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -r :*)",
+      "Bash(rm -rF:*)",
+      "Bash(rm -rf:*)",
+      "Bash(sed *.env*:*)",
+      "Bash(sed */.env*:*)",
+      "Bash(sed *~/.aws/*:*)",
+      "Bash(sed *~/.ssh/*:*)",
+      "Bash(su:*)",
+      "Bash(sudo:*)",
+      "Bash(tail */.env*:*)",
+      "Bash(tail .env*:*)",
+      "Bash(tail ~/.aws/*:*)",
+      "Bash(tail ~/.ssh/*:*)",
+      "Read(**/.env*)",
+      "Read(**/secrets/**)",
+      "Read(~/.aws/*)",
+      "Read(~/.ssh/*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude-agent-flow/scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | { read -r cmd; case \"$cmd\" in backlog\\ *|backlog) BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi;; esac; } || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.skill // empty' | grep -qiF backlog && { BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi; } || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__*backlog*",
+        "_agentFlow": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [[ -n \"$BRANCH\" && \"$BRANCH\" != \"HEAD\" ]]; then git add backlog/ && git commit -m \"Backlog auto-sync [skip ci]\" 2>/dev/null; attempt=0; while [[ $attempt -le 4 ]]; do git push -u origin \"$BRANCH\" 2>&1 && break; attempt=$((attempt+1)); [[ $attempt -le 4 ]] && { echo \"backlog-sync: push failed, retrying in $((2**attempt))s...\" >&2; sleep $((2**attempt)); }; done; fi || true",
+            "statusMessage": "Committing and pushing backlog changes..."
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-code"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "feature-dev@claude-code-plugins": true,
+    "frontend-design@claude-code-plugins": true,
+    "plugin-dev@claude-code-plugins": true
+  }
+}

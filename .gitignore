@@ -8,6 +8,9 @@
 # Environment
 .env
 
+# Downloaded tool binaries (not project artifacts)
+actionlint
+
 # --- Agent Flow (managed) ---
 .claude/settings.local.json
 .playwright-cli/
@@ -16,9 +19,7 @@
 .superpowers/brainstorm/
 # Session-start log (diagnostic, not committed)
 .claude/session-start.log
+.claude-agent-flow/optional-tools.json
 # --- End Agent Flow ---
 
-.claude-agent-flow/tests/__pycache__/
-
-# Claude Code local settings (plugin repo)
-.claude/
+__pycache__/

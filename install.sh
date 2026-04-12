@@ -11,6 +11,10 @@
 #   # Direct execution:
 #   bash install.sh
 #   bash install.sh --scope sandbox
+#   bash install.sh --with-permissions   # install permission overrides without prompting
+#   bash install.sh --skip-permissions   # skip permission overrides without prompting
+#   bash install.sh --with-mergiraf   # install Mergiraf merge driver without prompting
+#   bash install.sh --skip-mergiraf   # skip Mergiraf without prompting
 #
 #   # Local testing (no clone — uses local plugin repo):
 #   bash install.sh --local /path/to/Claude-Agent-Flow --scope plugin
@@ -25,6 +29,11 @@ AUTO_UPDATE=false
 PLUGIN_NAME="agent-flow"
 LOCAL_PATH=""
 SKIP_PERMISSIONS=false
+WITH_PERMISSIONS=false
+SKIP_MERGIRAF=false
+WITH_MERGIRAF=false
+MARKETPLACE_REPO="timgranlundmarsden/claude-code-plugins"
+MARKETPLACE_NAME="timgranlundmarsden"
 
 # ── Parse arguments ──
 while [[ $# -gt 0 ]]; do
@@ -35,9 +44,138 @@ while [[ $# -gt 0 ]]; do
     --source-branch) [[ $# -lt 2 ]] && { echo "Error: --source-branch requires a value" >&2; exit 1; }; SOURCE_BRANCH="$2"; shift 2 ;;
     --local) if [[ $# -ge 2 && "$2" != --* ]]; then LOCAL_PATH="$2"; shift 2; else LOCAL_PATH="__auto__"; shift; fi ;;
     --skip-permissions) SKIP_PERMISSIONS=true; shift ;;
+    --with-permissions) WITH_PERMISSIONS=true; shift ;;
+    --skip-mergiraf) SKIP_MERGIRAF=true; shift ;;
+    --with-mergiraf) WITH_MERGIRAF=true; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
+
+if [[ "$SKIP_PERMISSIONS" == true && "$WITH_PERMISSIONS" == true ]]; then
+  echo "Error: --skip-permissions and --with-permissions are mutually exclusive" >&2
+  exit 1
+fi
+if [[ "$SKIP_MERGIRAF" == true && "$WITH_MERGIRAF" == true ]]; then
+  echo "Error: --skip-mergiraf and --with-mergiraf are mutually exclusive" >&2
+  exit 1
+fi
+
+# ── TTY availability check ──
+# Returns 0 if /dev/tty can actually be opened (controlling terminal exists),
+# 1 if the file doesn't exist or cannot be opened (no controlling terminal).
+_tty_available() {
+  [[ "${FORCE_NON_INTERACTIVE:-}" == "1" ]] && return 1
+  [[ -c /dev/tty ]] && { : </dev/tty; } 2>/dev/null
+}
+
+# ── Permissions consent prompt ──
+prompt_permissions() {
+  if [[ "$SKIP_PERMISSIONS" == true || "$WITH_PERMISSIONS" == true ]]; then
+    return
+  fi
+  if _tty_available; then
+    echo ""
+    echo "Agent Flow can install permission overrides in your project settings that"
+    echo "allow common operations (git commands, file editing, code search) to run"
+    echo "without prompting you each time."
+    echo "Permission deny rules (protecting .env, credentials) are always installed"
+    echo "regardless of your choice here."
+    echo ""
+    echo "  Y) Yes, install permission overrides"
+    echo "  N) No, skip -- you'll be prompted for each operation"
+    echo ""
+    while true; do
+      read -rp "Install permission overrides? [Y/N] (default: Y): " perm_choice </dev/tty
+      case "${perm_choice:-Y}" in
+        [Yy]) break ;;
+        [Nn]) SKIP_PERMISSIONS=true; break ;;
+        *) echo "Invalid choice. Enter Y or N." ;;
+      esac
+    done
+  else
+    SKIP_PERMISSIONS=true
+    echo ""
+    echo "No terminal detected. Skipping permission overrides."
+    echo "  Use --with-permissions to include them."
+    echo ""
+  fi
+}
+
+# ── Locate and source consent-utils.sh ──
+# Must be called after PLUGIN_DIR is resolved in the fresh-install path.
+# Falls back to the already-installed copy in self-install path.
+_source_consent_utils() {
+  local candidates=(
+    "${PLUGIN_DIR:+$PLUGIN_DIR/.claude-agent-flow/scripts/lib/consent-utils.sh}"
+    ".claude-agent-flow/scripts/lib/consent-utils.sh"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    [[ -n "$c" && -f "$c" ]] || continue
+    # shellcheck source=/dev/null
+    source "$c"
+    return 0
+  done
+  return 1
+}
+
+# ── Mergiraf consent prompt ──
+prompt_mergiraf() {
+  if [[ "$SKIP_MERGIRAF" == true || "$WITH_MERGIRAF" == true ]]; then
+    # Write consent to disk so session-start.sh picks it up without prompting
+    if declare -f consent_write_mergiraf &>/dev/null; then
+      local val="disabled"
+      [[ "$WITH_MERGIRAF" == true ]] && val="enabled"
+      consent_write_mergiraf "$PROJECT_ROOT_INSTALL" "$val" 2>/dev/null || true
+    fi
+    return
+  fi
+  if _tty_available; then
+    echo ""
+    echo "Mergiraf is a syntax-aware merge conflict resolver. When enabled, git will use"
+    echo "it as the merge driver for this repo — resulting in fewer conflict markers and"
+    echo "smarter auto-resolution of code changes."
+    echo ""
+    echo "Scope: this repository only (stored in .git/config)."
+    echo ""
+    echo "  Y) Yes, install Mergiraf merge driver for this repo"
+    echo "  N) No, skip — use standard git merge"
+    echo ""
+    while true; do
+      read -rp "Install Mergiraf? [y/N] (default: N): " mg_choice </dev/tty
+      case "${mg_choice:-N}" in
+        [Yy]) WITH_MERGIRAF=true; break ;;
+        [Nn]|"") SKIP_MERGIRAF=true; break ;;
+        *) echo "Invalid choice. Enter Y or N." ;;
+      esac
+    done
+    if declare -f consent_write_mergiraf &>/dev/null; then
+      local val="disabled"
+      [[ "$WITH_MERGIRAF" == true ]] && val="enabled"
+      consent_write_mergiraf "$PROJECT_ROOT_INSTALL" "$val" 2>/dev/null || true
+    fi
+  else
+    SKIP_MERGIRAF=true
+    # hint handled by print_optional_tools_hint
+  fi
+}
+
+# ── Combined non-interactive hint ──
+# Prints one hint line when Mergiraf was skipped due to no TTY.
+# Reads SKIP_MERGIRAF and WITH_MERGIRAF from the calling scope.
+print_optional_tools_hint() {
+  # Only print if we're in non-interactive mode (no TTY) and at least one is skipped
+  _tty_available && return 0
+
+  local hint=""
+  local mg_skipped=false
+  [[ "$SKIP_MERGIRAF" == true && "$WITH_MERGIRAF" != true ]] && mg_skipped=true
+
+  if [[ "$mg_skipped" == true ]]; then
+    hint="Skipping Mergiraf installation. Use --with-mergiraf to include it."
+  fi
+  [[ -n "$hint" ]] && echo "  $hint"
+}
 
 # ── Validate scope if provided ──
 if [[ -n "$SCOPE" && "$SCOPE" != "plugin" && "$SCOPE" != "plugin+github" && "$SCOPE" != "sandbox" ]]; then
@@ -52,6 +190,9 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 1
 fi
 
+# Resolve project root for consent storage
+PROJECT_ROOT_INSTALL="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
 echo "╔══════════════════════════════════════════════╗"
 echo "║       Agent Flow Installer                   ║"
 echo "╚══════════════════════════════════════════════╝"
@@ -65,7 +206,7 @@ if [[ -n "$LOCAL_PATH" ]]; then
     fi
     if [[ -z "${PLUGIN_REPO_TARGET:-}" ]]; then
       SCRIPT_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-      if [[ -d "$SCRIPT_SELF_DIR/plugins/$PLUGIN_NAME" ]]; then
+      if [[ -f "$SCRIPT_SELF_DIR/.claude-plugin/plugin.json" ]]; then
         LOCAL_PATH="$SCRIPT_SELF_DIR"
       else
         echo "Error: --local without a path requires PLUGIN_REPO_TARGET env var or .env" >&2
@@ -98,6 +239,14 @@ if [[ -f ".claude-agent-flow/scripts/agent-flow-install.sh" ]]; then
       SCOPE="plugin"
     fi
   fi
+  prompt_permissions
+  # Source consent utilities from the existing installation
+  if ! _source_consent_utils; then
+    echo "Warning: consent-utils.sh not found — skipping Mergiraf prompt" >&2
+    SKIP_MERGIRAF=true
+  fi
+  prompt_mergiraf
+  print_optional_tools_hint
   INSTALL_ARGS=(--update)
   if [[ -n "$SCOPE" ]]; then
     INSTALL_ARGS+=(--scope "$SCOPE")
@@ -117,14 +266,15 @@ if [[ -f ".claude-agent-flow/scripts/agent-flow-install.sh" ]]; then
   # Forward --plugin-dir when running in local mode so the installed script
   # reads from the updated source rather than the already-installed copy
   if [[ -n "$LOCAL_PATH" ]]; then
-    INSTALL_ARGS+=(--plugin-dir "$LOCAL_PATH/plugins/$PLUGIN_NAME")
+    INSTALL_ARGS+=(--plugin-dir "$LOCAL_PATH")
   fi
+  INSTALL_ARGS+=(--marketplace-name "$MARKETPLACE_NAME" --marketplace-repo "$MARKETPLACE_REPO")
   exec bash .claude-agent-flow/scripts/agent-flow-install.sh "${INSTALL_ARGS[@]}"
 fi
 
 # ── Step 1: Interactivity check and scope prompt ──
 if [[ -z "$SCOPE" ]]; then
-  if [ -t 0 ]; then
+  if _tty_available; then
     echo "Select installation scope:"
     echo ""
     echo "  A) Plugin — Claude Code components only"
@@ -140,7 +290,7 @@ if [[ -z "$SCOPE" ]]; then
     echo "     Best for Claude Code web (claude.ai/code) or air-gapped environments"
     echo ""
     while true; do
-      read -rp "Choose scope [A/B/C] (default: A): " choice
+      read -rp "Choose scope [A/B/C] (default: A): " choice </dev/tty
       case "${choice:-A}" in
         [Aa]) SCOPE="plugin"; break ;;
         [Bb]) SCOPE="plugin+github"; break ;;
@@ -153,24 +303,29 @@ if [[ -z "$SCOPE" ]]; then
     echo "Non-interactive mode detected. Defaulting to scope: plugin"
     echo "  Tip: Use '--scope plugin+github' or '--scope sandbox' for other options."
     echo ""
+    if [[ "$WITH_PERMISSIONS" != true && "$SKIP_PERMISSIONS" != true ]]; then
+      SKIP_PERMISSIONS=true
+      echo "  Permission overrides skipped. Use --with-permissions to include them."
+    fi
   fi
 fi
 
 echo "Selected scope: $SCOPE"
 echo ""
 
+prompt_permissions
+
 # ── Step 2: Plugin install (if claude CLI is available) ──
 if command -v claude &>/dev/null && [[ -z "$LOCAL_PATH" ]]; then
   echo "Claude CLI detected — installing plugin from marketplace..."
-  MARKETPLACE_ID="${SOURCE_REPO##*/}"
 
-  if claude plugin marketplace add "$SOURCE_REPO" 2>/dev/null; then
+  if claude plugin marketplace add "$MARKETPLACE_REPO" 2>/dev/null; then
     echo "Plugin registered in marketplace."
   else
     echo "Note: Plugin marketplace registration skipped (may already be registered)."
   fi
 
-  if claude plugin install "${PLUGIN_NAME}@${MARKETPLACE_ID}" --scope project 2>/dev/null; then
+  if claude plugin install "${PLUGIN_NAME}@${MARKETPLACE_NAME}" --scope project 2>/dev/null; then
     echo "Plugin installed successfully."
   else
     echo "Note: Plugin install skipped (may already be installed)."
@@ -194,7 +349,7 @@ if [[ -n "$LOCAL_PATH" ]]; then
   # (LOCAL_PATH was already resolved from __auto__ earlier)
   echo "Using local plugin repo: $LOCAL_PATH"
   CLONE_DIR=""
-  PLUGIN_DIR="$LOCAL_PATH/plugins/$PLUGIN_NAME"
+  PLUGIN_DIR="$LOCAL_PATH"
 else
   echo "Fetching agent-flow from $SOURCE_REPO..."
   CLONE_DIR=$(mktemp -d)
@@ -207,7 +362,7 @@ else
   git clone --depth 1 --branch "$SOURCE_BRANCH" \
     "https://github.com/${SOURCE_REPO}.git" "$CLONE_DIR"
 
-  PLUGIN_DIR="$CLONE_DIR/plugins/$PLUGIN_NAME"
+  PLUGIN_DIR="$CLONE_DIR"
 fi
 
 if [[ ! -f "$PLUGIN_DIR/.claude-agent-flow/install-manifest.yml" ]]; then
@@ -215,6 +370,14 @@ if [[ ! -f "$PLUGIN_DIR/.claude-agent-flow/install-manifest.yml" ]]; then
   echo "The plugin repo may be outdated or the clone failed." >&2
   exit 1
 fi
+
+# Source consent utilities from the plugin dir (now resolved)
+if ! _source_consent_utils; then
+  echo "Warning: consent-utils.sh not found — skipping Mergiraf prompt" >&2
+  SKIP_MERGIRAF=true
+fi
+prompt_mergiraf
+print_optional_tools_hint
 
 echo "Running agent-flow install script..."
 FINAL_ARGS=(--scope "$SCOPE" --plugin-dir "$PLUGIN_DIR")
@@ -230,6 +393,7 @@ fi
 if [[ "$SKIP_PERMISSIONS" == true ]]; then
   FINAL_ARGS+=(--skip-permissions)
 fi
+FINAL_ARGS+=(--marketplace-name "$MARKETPLACE_NAME" --marketplace-repo "$MARKETPLACE_REPO")
 bash "$PLUGIN_DIR/.claude-agent-flow/scripts/agent-flow-install.sh" "${FINAL_ARGS[@]}"
 
 # ── Verify installation ──

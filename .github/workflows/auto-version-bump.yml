@@ -1,0 +1,105 @@
+name: Auto Version Bump
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: write
+concurrency:
+  group: version-bump-${{ github.repository }}
+  cancel-in-progress: true
+jobs:
+  skip-in-forks:
+    if: github.repository != 'timgranlundmarsden/claude-agent-flow'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Skipping: this workflow only runs in timgranlundmarsden/claude-agent-flow."
+          echo "Detected: ${{ github.repository }}"
+
+  bump-version:
+    if: github.repository == 'timgranlundmarsden/claude-agent-flow'
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_JSON: .claude-plugin/plugin.json
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Compare versions
+        id: versions
+        run: |
+          # Read PR branch version
+          pr_version=$(jq -r '.version // empty' "$PLUGIN_JSON")
+          if [[ -z "$pr_version" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "## Version Bump: Skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "plugin.json missing or has no version field" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Read main branch version (fails gracefully if no plugin.json on main yet)
+          main_version=$(git show origin/main:"$PLUGIN_JSON" 2>/dev/null | jq -r '.version // empty' || true)
+          if [[ -z "$main_version" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "## Version Bump: Skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "No version found on main branch (first PR or missing plugin.json on main). Skipping auto-bump." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [[ "$pr_version" != "$main_version" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "## Version Bump: Skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Manual version bump detected: \`$main_version\` → \`$pr_version\`. Auto-bump skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "current_version=$pr_version" >> "$GITHUB_OUTPUT"
+
+      - name: Bump patch version
+        if: steps.versions.outputs.skip == 'false'
+        env:
+          CURRENT_VERSION: ${{ steps.versions.outputs.current_version }}
+        run: |
+          current="$CURRENT_VERSION"
+          IFS='.' read -r major minor patch <<< "$current"
+          if ! [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ && "$patch" =~ ^[0-9]+$ ]]; then
+            echo "Error: version '$current' is not a plain semver (X.Y.Z) — cannot auto-bump" >&2
+            echo "## Version Bump: Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Version \`$current\` is not a plain semver (X.Y.Z). Fix the version field and retry." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          new_version="${major}.${minor}.$((patch + 1))"
+
+          # Update plugin.json
+          tmp=$(mktemp)
+          if jq --arg v "$new_version" '.version = $v' "$PLUGIN_JSON" > "$tmp"; then
+            mv "$tmp" "$PLUGIN_JSON"
+          else
+            rm -f "$tmp"
+            echo "Error: failed to update plugin.json" >&2
+            exit 1
+          fi
+
+          echo "new_version=$new_version" >> "$GITHUB_ENV"
+          echo "current_version=$current" >> "$GITHUB_ENV"
+
+      - name: Commit and push
+        if: steps.versions.outputs.skip == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$PLUGIN_JSON"
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump version ${current_version} -> ${new_version}"
+          git push
+
+      - name: Post summary
+        if: steps.versions.outputs.skip == 'false'
+        run: |
+          echo "## Version Bump: Done" >> "$GITHUB_STEP_SUMMARY"
+          echo "Bumped \`${current_version}\` → \`${new_version}\`" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,114 @@
+name: Auto Tag and Release on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag-on-merge-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  skip-in-forks:
+    if: github.repository != 'timgranlundmarsden/claude-agent-flow'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Skipping: this workflow only runs in timgranlundmarsden/claude-agent-flow."
+          echo "Detected: ${{ github.repository }}"
+
+  tag-and-release:
+    if: github.repository == 'timgranlundmarsden/claude-agent-flow' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_JSON: .claude-plugin/plugin.json
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Read version from plugin.json
+        id: read_version
+        run: |
+          set -u
+          if [[ ! -f "$PLUGIN_JSON" ]]; then
+            echo "Error: $PLUGIN_JSON not found on main" >&2
+            exit 1
+          fi
+          version=$(jq -r '.version // empty' "$PLUGIN_JSON")
+          if [[ -z "$version" ]]; then
+            echo "Error: version field missing or empty in $PLUGIN_JSON" >&2
+            exit 1
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][a-zA-Z0-9._-]+)?$ ]]; then
+            echo "Error: version '${version}' in $PLUGIN_JSON does not match expected semver pattern (X.Y.Z)" >&2
+            exit 1
+          fi
+          tag="v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Read version: ${version} (tag: ${tag})"
+
+      - name: Fail if tag already exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.read_version.outputs.tag }}
+        # NOTE: This check is advisory — a TOCTOU race is possible if another process
+        # creates the same tag between this check and `gh release create`. If that happens,
+        # gh will fail loudly with an error visible in the job logs.
+        run: |
+          set -u
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Error: tag ${TAG} already exists locally" >&2
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Error: tag ${TAG} already exists on remote" >&2
+            exit 1
+          fi
+          echo "Tag ${TAG} is available."
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.read_version.outputs.tag }}
+        run: |
+          set -u
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes \
+            --latest=true \
+            --target "${MERGE_SHA}"
+
+      - name: Post summary
+        if: success()
+        env:
+          TAG: ${{ steps.read_version.outputs.tag }}
+        run: |
+          {
+            echo "## Auto Tag: Done"
+            echo "Created release \`${TAG}\` from merge commit \`${MERGE_SHA}\`."
+            echo ""
+            echo "Release URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post failure summary
+        if: failure()
+        env:
+          TAG: ${{ steps.read_version.outputs.tag }}
+        run: |
+          {
+            echo "## Auto Tag: Failed"
+            echo "Workflow failed while attempting to create release \`${TAG:-<unknown>}\`. See job logs for details."
+          } >> "$GITHUB_STEP_SUMMARY"
