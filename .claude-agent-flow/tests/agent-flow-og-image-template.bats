@@ -4,7 +4,13 @@
 setup() {
   load test_helper
   TEMPLATE="$PROJECT_ROOT/.claude-agent-flow/templates/og-image-template.html"
-  PNG_OUTPUT="$PROJECT_ROOT/docs/public/img/og-image.png"
+  # In the source repo the file lives under docs/public/; in the plugin repo
+  # the sync manifest strips the "public/" prefix so it lands under docs/.
+  if is_source_repo; then
+    PNG_OUTPUT="$PROJECT_ROOT/docs/public/img/og-image.png"
+  else
+    PNG_OUTPUT="$PROJECT_ROOT/docs/img/og-image.png"
+  fi
 }
 
 # ── File existence ────────────────────────────────────────────────────────────
@@ -266,8 +272,8 @@ with open('$PNG_OUTPUT', 'rb') as f:
   [[ "$TEMPLATE" != *"docs/public/"* ]]
 }
 
-@test "43. PNG output is in docs/public/img/" {
-  [[ "$PNG_OUTPUT" == *"docs/public/img/"* ]]
+@test "43. PNG output is in docs/public/img/ (source repo) or docs/img/ (plugin repo)" {
+  [[ "$PNG_OUTPUT" == *"docs/public/img/"* ]] || [[ "$PNG_OUTPUT" == *"docs/img/"* ]]
 }
 
 # ── CSS variable definitions ──────────────────────────────────────────────────
