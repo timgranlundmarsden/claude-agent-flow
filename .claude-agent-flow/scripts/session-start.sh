@@ -346,14 +346,10 @@ install_mergiraf() {
     mg_consent="$(consent_read_mergiraf "$PROJECT_ROOT")"
   fi
   if [[ "$mg_consent" == "absent" ]]; then
-    if _tty_available_consent; then
-      mg_consent="$(prompt_mergiraf_interactive "$PROJECT_ROOT")"
-    else
-      log "Mergiraf consent absent, no TTY — skipping"
-      tool_record "SKIP" "consent absent, no TTY — skipped"
-      tool_section_end "SKIP"
-      return 0
-    fi
+    log "Mergiraf consent absent — run /install to configure"
+    tool_record "SKIP" "consent absent — run /install to configure"
+    tool_section_end "SKIP"
+    return 0
   fi
   if [[ "$mg_consent" != "enabled" ]]; then
     log "Mergiraf consent: disabled — skipping"
