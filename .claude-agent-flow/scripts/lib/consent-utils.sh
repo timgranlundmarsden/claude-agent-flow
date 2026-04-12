@@ -35,7 +35,7 @@ _consent_read_mergiraf_from_file() {
   else
     # Bash fallback: no jq
     value="$(grep -oE '"mergiraf"[[:space:]]*:[[:space:]]*"(enabled|disabled)"' "$consent_file" 2>/dev/null \
-      | sed 's/.*"\(enabled\|disabled\)".*/\1/' || true)"
+      | grep -oE 'enabled|disabled' || true)"
   fi
 
   case "${value:-}" in
@@ -60,10 +60,12 @@ consent_read_mergiraf() {
 }
 
 consent_write_mergiraf() {
-  # Args: PROJECT_ROOT VALUE
+  # Args: PROJECT_ROOT VALUE [TARGET_FILE]
   # VALUE must be "enabled" or "disabled"
+  # TARGET_FILE defaults to optional-tools.json (gitignored, per-machine)
   local project_root="${1:-}"
   local value="${2:-}"
+  local target_filename="${3:-optional-tools.json}"
 
   case "$value" in
     enabled|disabled) ;;
@@ -73,9 +75,9 @@ consent_write_mergiraf() {
   local consent_dir="${project_root}/.claude-agent-flow"
   mkdir -p "$consent_dir" || return 1
 
-  local consent_file="${consent_dir}/optional-tools.json"
+  local consent_file="${consent_dir}/${target_filename}"
   local tmp_file
-  tmp_file="$(mktemp "${consent_dir}/optional-tools.json.XXXXXX")" || return 1
+  tmp_file="$(mktemp "${consent_dir}/${target_filename}.XXXXXX")" || return 1
 
   if command -v jq &>/dev/null && [[ -f "$consent_file" ]]; then
     # Preserve other keys
@@ -142,6 +144,9 @@ prompt_mergiraf_interactive() {
           echo "disabled"
           return 0
         fi
+        # Also write consent-defaults.json (committable) so the answer travels
+        # with the repo and web/CI environments without a TTY pick it up.
+        consent_write_mergiraf "$project_root" "enabled" "consent-defaults.json" 2>/dev/null || true
         echo "enabled"
         return 0
         ;;

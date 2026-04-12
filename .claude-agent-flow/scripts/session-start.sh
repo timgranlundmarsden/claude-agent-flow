@@ -342,10 +342,6 @@ install_mergiraf() {
   local mg_consent
   mg_consent="$(consent_read_mergiraf "$PROJECT_ROOT")"
   if [[ "$mg_consent" == "absent" ]]; then
-    migrate_mergiraf_consent "$PROJECT_ROOT"
-    mg_consent="$(consent_read_mergiraf "$PROJECT_ROOT")"
-  fi
-  if [[ "$mg_consent" == "absent" ]]; then
     log "Mergiraf consent absent — run /install to configure"
     tool_record "SKIP" "consent absent — run /install to configure"
     tool_section_end "SKIP"

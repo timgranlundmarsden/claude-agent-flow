@@ -203,6 +203,7 @@ if [[ -f "$_CONSENT_UTILS" ]]; then
     consent_write_mergiraf "$TARGET_DIR" "disabled" 2>/dev/null || true
   elif [[ "$WITH_MERGIRAF" == true ]]; then
     consent_write_mergiraf "$TARGET_DIR" "enabled" 2>/dev/null || true
+    consent_write_mergiraf "$TARGET_DIR" "enabled" "consent-defaults.json" 2>/dev/null || true
   else
     _mg_consent="$(consent_read_mergiraf "$TARGET_DIR")"
     if [[ "$_mg_consent" == "absent" ]]; then

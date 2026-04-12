@@ -241,6 +241,23 @@ teardown() {
   [[ "$result" == "enabled" ]]
 }
 
+# ── consent_write_mergiraf optional target file ──────────────────────────────
+
+@test "25: consent_write_mergiraf with explicit target writes consent-defaults.json" {
+  rm -rf "$PROJECT_ROOT/.claude-agent-flow"
+  consent_write_mergiraf "$PROJECT_ROOT" "enabled" "consent-defaults.json"
+  [[ -f "$PROJECT_ROOT/.claude-agent-flow/consent-defaults.json" ]]
+  result="$(consent_read_mergiraf "$PROJECT_ROOT")"
+  [[ "$result" == "enabled" ]]
+}
+
+@test "25b: consent_write_mergiraf default target does NOT write consent-defaults.json" {
+  rm -rf "$PROJECT_ROOT/.claude-agent-flow"
+  consent_write_mergiraf "$PROJECT_ROOT" "enabled"
+  [[ ! -f "$PROJECT_ROOT/.claude-agent-flow/consent-defaults.json" ]]
+  [[ -f "$PROJECT_ROOT/.claude-agent-flow/optional-tools.json" ]]
+}
+
 # ── Atomic write safety ───────────────────────────────────────────────────────
 
 @test "consent_write_mergiraf is atomic (tmp file cleaned up)" {
