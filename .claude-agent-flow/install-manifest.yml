@@ -1,0 +1,108 @@
+# install-manifest.yml — Source of truth for the agent-flow installer
+#
+# Used by: agent-flow-install.sh
+# All source paths are relative to the plugin root (flat layout, repo root)
+version: 1
+
+# ── Merge operations (all install modes) ────────────────────────────
+# These patch/merge into the user's existing repo files
+merge_files:
+  - path: CLAUDE.md
+    strategy: section-patch
+    source: .claude-agent-flow/templates/CLAUDE.md.managed
+    preamble: .claude-agent-flow/templates/CLAUDE.md.preamble
+    managed_sections:
+      - "Backlog Management"
+      - "Git Workflow — Required Before Every Push"
+      - "Plan Mode Override"
+      - "Agent Flow"
+      - "Honouring User Intent"
+      - "Vendor Skills — Read-Only"
+      - "Mandatory Test Coverage"
+      - "Visual Layout Verification"
+      - "Document Folder Auto-Suggest"
+      - "Backlog Workflow"
+
+  - path: .claude/settings.json
+    strategy: json-deep-merge
+    source: settings.json
+    managed_keys:
+      - permissions
+      - hooks
+      - extraKnownMarketplaces
+      - enabledPlugins
+
+  - path: .mcp.json
+    strategy: json-deep-merge
+    source: .claude-agent-flow/templates/.mcp.json
+
+  - path: .gitignore
+    strategy: append-missing
+    managed_lines:
+      - ".claude/settings.local.json"
+      - ".playwright-cli/"
+      - ".scratch/screenshots/"
+      - ".claude-agent-flow/bin/mergiraf"
+      - ".superpowers/brainstorm/"
+      - ".claude/session-start.log"
+
+  - path: .gitattributes
+    strategy: append-missing
+    managed_lines:
+      - "* merge=mergiraf"
+
+  - path: backlog/config.yml
+    strategy: template
+    source: .claude-agent-flow/templates/backlog/config.yml
+    customizable_fields:
+      - project_name
+
+  - path: external-review-config.repo.yml
+    strategy: create-only
+    source: .claude-agent-flow/templates/external-review-config.repo.yml
+
+  - path: CHANGELOG.md
+    strategy: create-only
+    source: .claude-agent-flow/templates/CHANGELOG.md
+
+# ── Workflow files (plugin+github + sandbox modes) ──────────────────
+# Copied into user's .github/workflows/
+# plugin+github: only review-pr and backlog-notify (no vendored code to sync/test)
+# sandbox: selectively copies files listed under sandbox_only
+workflow_files:
+  source: .github/workflows/
+  target: .github/workflows/
+  github_only:
+    - agent-flow-review-pr.yml
+    - agent-flow-backlog-notify.yml
+  sandbox_only:
+    - agent-flow-backlog-notify.yml
+    - agent-flow-downstream.yml
+    - agent-flow-review-pr.yml
+    - agent-flow-tests.yml
+    - agent-flow-upstream.yml
+    - agent-flow-auto-merge-planning.yml
+
+# ── Sandbox mappings (sandbox mode only) ────────────────────────────
+# Reverse-maps plugin layout back to master layout in user's repo
+# so the full agent-flow system works offline / in web environments
+sandbox_mappings:
+  - source: .claude/agents/
+    target: .claude/agents/
+  - source: .claude/commands/
+    target: .claude/commands/
+  - source: .claude/skills/
+    target: .claude/skills/
+  - source: .claude/settings.json
+    target: .claude/settings.json
+  - source: .claude-agent-flow/
+    target: .claude-agent-flow/
+    sandbox_excludes:
+      - "templates/plugin-README.md"
+      - "tests/plugin-repo-sync.bats"
+      - "tests/test-install-scope.bats"
+      - "tests/test-local-install.sh"
+  - source: LICENSE
+    target: .claude-agent-flow/LICENSE
+  - source: THIRD_PARTY_LICENSES.md
+    target: .claude-agent-flow/THIRD_PARTY_LICENSES.md

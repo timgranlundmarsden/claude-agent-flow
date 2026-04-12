@@ -16,7 +16,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  skip-in-forks:
+    if: github.repository != 'timgranlundmarsden/claude-agent-flow'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Skipping: this workflow only runs in timgranlundmarsden/claude-agent-flow."
+          echo "Detected: ${{ github.repository }}"
+
   deploy:
+    if: github.repository == 'timgranlundmarsden/claude-agent-flow'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

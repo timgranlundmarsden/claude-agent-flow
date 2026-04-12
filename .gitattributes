@@ -1,0 +1,3 @@
+# Use mergiraf as the merge driver for syntax-aware conflict resolution.
+# mergiraf falls back gracefully for unsupported file formats.
+* merge=mergiraf

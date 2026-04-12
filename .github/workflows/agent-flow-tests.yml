@@ -1,0 +1,63 @@
+# Agent Flow Tests — CI validation for sync engine, merge scripts, and workflow logic
+#
+# Runs only when a PR is opened or reopened against main, and on manual dispatch.
+# Synchronize (subsequent pushes to a PR) is intentionally OMITTED to control
+# minute consumption — re-verify before merge by clicking "Run workflow" in the
+# Actions UI against the PR branch. Branch protection requires the `test` check
+# on the PR's HEAD SHA before merging.
+#
+# Tests use BATS-core (vendored in .claude-agent-flow/tests/lib/) for local dev,
+# and bats-core/bats-action for CI.
+
+name: Agent Flow Tests
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'plans/**'
+      - 'backlog/**'
+      - '.vscode/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq shellcheck parallel
+          pip install pyyaml
+
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: v1.7.12
+        run: |
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" \
+            | tar -xz
+          chmod +x actionlint
+          echo "$PWD" >> "$GITHUB_PATH"
+
+      - name: Run BATS tests
+        run: |
+          .claude-agent-flow/tests/lib/bats-core/bin/bats \
+            --jobs 8 \
+            .claude-agent-flow/tests/*.bats
