@@ -4,8 +4,8 @@ A Claude Code plugin that brings a multi-agent development pipeline to your repo
 
 **[Full documentation →](https://timgranlundmarsden.github.io/claude-agent-flow/)** · **[Jump to installation ↓](#installation)**
 
-> **Note:** This is a Claude Code plugin repository — do not clone it directly.
-> Install it into your project using the `install.sh` script: [Jump to installation ↓](#installation)
+> **Note:** Install this into your existing project using the `install.sh` script: [Jump to installation ↓](#installation)
+> For a fresh start or sandbox/workspace use, you can also clone this repo directly and open it in Claude Code — run `/install` once to initialise sync state.
 
 ![claude-agent-code.jpg](docs/img/claude-agent-code.jpg)
 
