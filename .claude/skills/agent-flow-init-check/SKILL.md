@@ -2,8 +2,9 @@
 name: agent-flow-init-check
 description: >
   Guard skill that halts command execution if the agent-flow system is not
-  initialized. Checks for .claude-agent-flow/sync-state.json and stops with
-  a clear message to run /install if absent.
+  initialized. Checks for .claude-agent-flow/sync-state.json (installed repos)
+  or .claude-agent-flow/publish-plugin-manifest.yml (master source repo) and
+  stops with a clear message to run /install if neither is present.
 ---
 
 # Init Guard
@@ -12,7 +13,7 @@ Before executing the command, check whether the agent-flow system has been initi
 
 ## Check
 
-1. Look for the file `.claude-agent-flow/repo-sync-manifest.yml` in the repository root
+1. Look for the file `.claude-agent-flow/publish-plugin-manifest.yml` in the repository root
    - **If it exists:** This is the **master (source) repo** — skip all further checks and continue silently
 2. Look for the file `.claude-agent-flow/sync-state.json` in the repository root
 3. **If the file does NOT exist:** Output the following message and **STOP immediately** — do not continue with the command:
