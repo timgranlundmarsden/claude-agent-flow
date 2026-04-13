@@ -516,6 +516,25 @@
             <div class="card-subtitle">Self-contained</div>
             <div class="card-description">Everything fully vendored into your repo — agents, commands, and skills live alongside your code with no external plugin dependency at runtime. Full pipeline works inside sandboxed environments including Claude Code web (claude.ai/code)</div>
             <div class="best-for">Best for: Claude Code web or air-gapped environments</div>
+            <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Two ways to get sandbox mode:</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="flex-shrink:0;width:20px;height:20px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">A</span>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">
+                  <strong style="color:var(--text);">Existing repo</strong> — use the curl command above with <code style="background:var(--surface-alt);padding:2px 6px;border-radius:4px;font-size:12px;">--scope sandbox</code>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="flex-shrink:0;width:20px;height:20px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">B</span>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">
+                  <strong style="color:var(--text);">New project</strong> — clone the repo, open Claude Code in the folder, run <code style="background:var(--surface-alt);padding:2px 6px;border-radius:4px;font-size:12px;">/install</code>
+                  <pre style="background:#1a1a1f;color:rgba(255,255,255,.85);font-family:var(--mono);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;margin:8px 0 0;overflow-x:auto;max-width:100%;white-space:pre-wrap;word-break:break-all;">git clone https://github.com/timgranlundmarsden/claude-agent-flow</pre>
+                  <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;font-style:italic;">Sandbox scope is auto-selected — no prompt.</div>
+                </div>
+              </div>
+            </div>
+            </div>
           </div>
         </div>
       </div>
