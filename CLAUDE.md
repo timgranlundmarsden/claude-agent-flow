@@ -12,7 +12,7 @@ This project uses Backlog.md MCP for task and project management.
 - Search before creating. Plan before code. **After every `backlog task edit -s "..."` status change, immediately run `git push -u origin $(git rev-parse --abbrev-ref HEAD)`** — the auto-push hook commits reliably but does not reliably push in this environment; explicit push is required for status changes to be visible on GitHub.
 - Status lifecycle: To Do → In Progress → Blocked → Ready for Review → Done.
   - Set In Progress before work; if revisiting a Ready for Review task, set back to In Progress first.
-  - Log progress with `notesAppend` and tick acceptance criteria as you go.
+  - Log progress with `notesAppend` and tick acceptance criteria as you go. 
 
 ---
 
@@ -122,3 +122,13 @@ Read `backlog://workflow/overview` before creating any tasks (mandatory, every s
 
 When the user says "suppress this in the review", read `.claude-agent-flow/docs/external-review-suppression-guide.md` first. Fix the code before adding a suppression.
 See `.claude-agent-flow/docs/sync-workflow-conventions.md` before editing sync workflows.
+## Technology Stack
+
+This project uses `TECHSTACK.md` at the repo root to declare its technology profile.
+Agents read this file for technology-specific commands (test runner, linter, type checker, etc.),
+project conventions, and architectural patterns instead of assuming a particular stack.
+If TECHSTACK.md is missing, the explorer agent will auto-detect it on first pipeline run.
+See TECHSTACK.md for current values.
+
+---
+

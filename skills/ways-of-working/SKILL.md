@@ -118,8 +118,8 @@ NOT justified for single-file tasks or simple bug fixes. Default to lite mode; e
 | architect | opus | Design decisions — may dispatch researcher |
 | ideator | opus | Lateral thinking — output to human only |
 | critic | opus | Adversarial review — tries to break code |
-| frontend | sonnet | UI, React, TypeScript, Tailwind |
-| backend | sonnet | API, DB queries, auth, Supabase, n8n |
+| frontend | sonnet | UI components, styling, client-side state |
+| backend | sonnet | API routes, business logic, data persistence, auth |
 | storage | sonnet | All persistence — sole RLS owner |
 | researcher | sonnet | Web research, docs, library investigation |
 | tester | sonnet | Tests — write, verify, visual checks |

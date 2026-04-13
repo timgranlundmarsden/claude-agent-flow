@@ -122,6 +122,11 @@ If `task_id` is empty, skip all tracking steps silently.
 ### Phase 1 — Prepare
 1. Invoke explorer to map all affected files
 2. If `task_id` is set: `backlog task edit <task_id> --append-notes "Explorer complete: <one-line summary>"`
+2a. **TECHSTACK.md lifecycle** — If explorer's output includes a `TECHSTACK DISCOVERY:` section:
+    - If TECHSTACK.md is **missing**: Ask user via `AskUserQuestion` to confirm the proposed content. If confirmed, invoke the relevant builder agent with explicit instruction: "Write the following content verbatim to `TECHSTACK.md` at the project root: <paste confirmed content from TECHSTACK DISCOVERY section>". Commit: `git add TECHSTACK.md && git commit -m "Add TECHSTACK.md" && git push`.
+    - If TECHSTACK.md is **stale**: Show detected changes. Ask user via `AskUserQuestion` to update, keep, or merge each changed section. If any updates confirmed, invoke the relevant builder agent with explicit instruction: "Edit `TECHSTACK.md` at the project root — apply the following confirmed changes: <list approved section updates>". Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md"`.
+    - If TECHSTACK.md is **fresh**: No action needed.
+    - After builders complete (step 10): If any builder introduced a new technology not in TECHSTACK.md, add it to the file. Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md: add <technology>"`.
 3. If design decisions exist, invoke architect and wait for the design brief
 4. If `task_id` is set: `backlog task edit <task_id> --append-notes "Architect complete: <one-line summary>"`
 5. Architect may have already dispatched researcher internally for technical validation.
@@ -147,7 +152,7 @@ If `task_id` is empty, skip all tracking steps silently.
     When invoking **frontend** for any UI/HTML/visual deliverable, your brief MUST include:
     - The design quality bar: distinctive, production-grade, not generic AI aesthetics
     - Any aesthetic constraints or tone from the plan (dark/light, brand colours, technical constraints)
-    - Explicit instruction: "Apply your preloaded `frontend-design` principles — commit to a bold aesthetic direction before writing code. No generic system fonts, no predictable layouts."
+    - Explicit instruction: "Apply your preloaded `frontend-design` principles — commit to a bold aesthetic direction before writing code."
 10. After each builder agent completes:
     - `backlog task edit <task_id> --append-notes "Builder complete: <one-line summary>"`
     - Check off any acceptance criteria the builder satisfied:

@@ -107,6 +107,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
 8. Wait for architect's design brief. Verify it contains a "Research Validation" section.
    If missing, send the architect a follow-up message requesting it validate all external
    dependencies against current web sources before proceeding.
+8a. **TECHSTACK.md awareness** — If architect's design introduces new technologies not listed in `TECHSTACK.md`, note them in a `NEW TECHNOLOGIES:` subsection of the architect's completion notes. These will be added to TECHSTACK.md after the build completes (handled by `/build` step 2a).
 
 ### Phase 4 — Save
 9. Create the plans/ directory at the project root if it does not exist
@@ -168,7 +169,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
     | `## Edge cases` | `--notes` | Full section verbatim, prefix with "Edge Cases:" |
     | `**Skills:**` line | append to `--notes` | If present, append after edge cases |
     | `task_priority` from Phase 2 | `--priority` | high / medium / low |
-    | Inferred labels | `-l` | UI/React/CSS → frontend, API/server → backend, schema/DB → storage, docs → docs; always add feature unless clearly refactor/bugfix; max 3 |
+    | Inferred labels | `-l` | UI/styling/components → frontend, API/server → backend, schema/DB → storage, docs → docs; always add feature unless clearly refactor/bugfix; max 3 |
     | Plan file path | `--ref` | Bidirectional link |
 
     Example command shape (adapt content from plan):

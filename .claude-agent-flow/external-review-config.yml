@@ -1259,3 +1259,231 @@ suppress:
   - file: "install.sh"
     keyword: "curl/dynamic install"
     reason: "False positive: install.sh IS the curl entry point. Both code paths forward --skip-permissions."
+
+  # --- TASK-28 GitHub Pages disagreements ---
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "missing return"
+    reason: "Reviewer: BATS tests return based on last command exit status per BATS design - explicit return unnecessary"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "difficult when multiple pages match"
+    reason: "Reviewer: test failure shows exact issue; grep output provides enough context for debugging"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "/docs' without the trailing slash"
+    reason: "Reviewer: test validates only absolute /docs/ paths which are the target issue; other patterns not problematic for this use case"
+  - file: ".claude-agent-flow/tests/sync-license-copy.bats"
+    keyword: "No newline at end of file"
+    reason: "Reviewer: BATS files don't require trailing newlines; tooling handles this correctly"
+  - file: "docs/public/index.html"
+    keyword: "No newline at end of file"
+    reason: "Reviewer: HTML files served over HTTP don't require trailing newlines; browsers handle correctly"
+  - file: "docs/public/showcase.html"
+    keyword: "logid values matching"
+    reason: "Reviewer: query parameter validation tested via link presence checks; specific logid testing not required for this task"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "expecting 9 top-level HTML files"
+    reason: "Reviewer: test correctly counts 9 HTML files at maxdepth 1 per task acceptance criteria"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "filenames are not actually present"
+    reason: "Reviewer: all tested files exist and match acceptance criteria per task completion"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "other subdirectory remains"
+    reason: "Reviewer: only logs/ and showcase/ subdirectories exist as intended per task design"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "legitimately contains relative asset paths"
+    reason: "Reviewer: ../ paths in showcase/wegovy-scorecard.html are intentional nav links back to main site"
+  - file: ".claude-agent-flow/tests/github-pages.bats"
+    keyword: "insufficiently precise"
+    reason: "Reviewer: find exclusion pattern correctly identifies showcase/ subdirectory; no other HTML nesting exists"
+
+  # --- TASK-41 auto-version-increment disagreements ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "existing target plugin.json with no parseable version"
+    reason: "Reviewer: empty saved_plugin_version intentionally falls back to source version — this IS the first-sync seeding behaviour tested by BATS test 39. Treating it as an error would break first-sync for targets with version-less plugin.json stubs."
+
+  # --- TASK-39 docs/plugin-readme-improved.md external review disagreements ---
+  - file: "backlog/tasks/task-39 - Document-Platform-Compatibility-in-Plugin-Readme.md"
+    keyword: "plain URL rather than markdown link"
+    reason: "Reviewer: The actual inserted content in docs/plugin-readme-improved.md at line 178 uses proper GFM markdown link syntax [WSL2](...). This concern incorrectly describes the task description wording as though it were the inserted code. The deliverable is correct."
+  - file: "plans/2026-04-09-2337-auto-version-increment.md"
+    keyword: "generate_marketplace_json source version"
+    reason: "Reviewer: Out of scope for TASK-39 docs-only review. This concern relates to a separate unrelated task (TASK-41) and was surfaced by the diff containing multiple plan files."
+  - file: "plans/2026-04-09-2319-fix-install-permissions.md"
+    keyword: "headless fallback message skip"
+    reason: "Reviewer: Out of scope for TASK-39 docs-only review. This concern relates to a separate task (TASK-40) and was surfaced by the diff containing multiple plan files."
+  - file: "backlog/tasks/task-40 - Fix-install.sh-to-prompt-for-permission-consent.md"
+    keyword: "SKIP_PERMISSIONS headless non-TTY"
+    reason: "Reviewer: Out of scope for TASK-39 docs-only review. Surfaced because diff includes unrelated backlog files from the same branch."
+  - file: "backlog/tasks/task-41 - Auto-Version-Increment-on-Plugin-Repo-PRs.md"
+    keyword: "workflow discovery path"
+    reason: "Reviewer: Out of scope for TASK-39 docs-only review. Surfaced because diff includes unrelated backlog files from the same branch."
+
+  # --- TASK-44 CI cost reduction disagreements ---
+  - file: ".github/workflows/agent-flow-tests.yml"
+    keyword: "synchronize no longer runs"
+    reason: "Reviewer: Omitting synchronize is an explicit, user-ratified design decision for TASK-44 CI cost reduction. Manual re-verification via workflow_dispatch before merge is the intended model. Branch protection requiring the test check ensures the final HEAD SHA is covered."
+  - file: ".github/workflows/agent-flow-review-pr.yml"
+    keyword: "synchronize stops this workflow"
+    reason: "Reviewer: Switching from synchronize to reopened on agent-flow-review-pr.yml is an explicit user-ratified design decision (TASK-44). The workflow_dispatch no-op behaviour was acknowledged and accepted by the user during the build loop."
+  - file: ".github/workflows/agent-flow-review-pr.yml"
+    keyword: "workflow_dispatch no-op"
+    reason: "Reviewer: workflow_dispatch on review-pr.yml is cosmetic noise by design — user explicitly ratified this during TASK-44 build loop. The inline NOTE comment documents the expected no-op behaviour."
+  - file: ".claude-agent-flow/tests/test-review-pr-workflow.sh"
+    keyword: "no longer checks for synchronize"
+    reason: "Reviewer: synchronize was intentionally removed from the trigger set in TASK-44. The test correctly asserts the new contract (reopened + workflow_dispatch). Asserting absence of a deliberately removed trigger is not required coverage."
+
+  # --- TASK-47 external review disagreements ---
+  - file: "install.sh"
+    keyword: "prompt_permissions invoked twice"
+    reason: "Reviewer: The self-install path (line 293) terminates via exec at line 324 before the fresh-install prompt_permissions at line 368 is reached. Both call sites are on mutually exclusive code paths — there is no double-prompt."
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-version-bump.yml"
+    keyword: "variables are not available in that step"
+    reason: "Reviewer: Variables written to GITHUB_ENV in one step are exported as shell environment variables in subsequent steps within the same job — this is standard GitHub Actions behaviour. The commit step correctly references ${current_version} and ${new_version} as env vars populated by the preceding Bump patch version step."
+
+  # --- TASK-46 re-review: out-of-scope external findings ---
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "MCP fallback flow"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. This review is narrowly scoped to plugin-repo-sync.md WARNING-1/WARNING-2 fixes. backlog-status.sh changes belong to a separate task."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "task-number parser"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Concerns about backlog-status.sh prefix matching are unrelated to the plugin-repo-sync.md fixes under review."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "task_wmd is extracted"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. backlog-status.sh heading variations are a separate task concern."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "Updated: when reading task"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Timestamp field name variations in backlog-status.sh are a separate task concern."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "sorted_active array-expansion"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Array loop correctness in backlog-status.sh is a separate task concern."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "sort key comment"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Sort ordering in backlog-status.sh is a separate task concern."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "current_status regex"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Status label regex in backlog-status.sh is a separate task concern."
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "QA paraphrase payload"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Field escaping in backlog-status.sh is a separate task concern."
+  - file: "docs/plugin-readme-improved.md"
+    keyword: "emoji/status symbols"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Plugin readme docs changes are a separate task concern."
+  - file: ".github/workflows/agent-flow-tests.yml"
+    keyword: "workflow now omits synchronize"
+    reason: "Reviewer: Out of scope for TASK-46 re-review. Already suppressed as a ratified TASK-44 decision; surfaced here due to diff breadth."
+
+  # --- TASK-49 re-review: consent-defaults migration skip ---
+  - file: ".claude-agent-flow/scripts/lib/consent-utils.sh"
+    keyword: "migration is skipped whenever consent-defaults"
+    reason: "Reviewer: The intentional skip is a documented design decision — consent-defaults.json IS the authoritative per-repo answer; seeding optional-tools.json on top is unnecessary churn. Future removal of consent-defaults.json is a separate concern for the default author, not a regression in this commit-only-comment diff."
+
+  # --- TASK-50 auto-merge planning PRs disagreements ---
+  - file: ".github/workflows/auto-merge-planning.yml"
+    keyword: "breaks immediately when exactly 100 files"
+    reason: "Reviewer: The loop does NOT break on exactly 100 files. The break condition is COUNT -lt 100 (strictly less than), so a full page of exactly 100 causes the loop to continue to the next page. EXT1's claim is incorrect."
+  - file: ".github/workflows/auto-merge-planning.yml"
+    keyword: "re-fetches the PR after the file-list loop"
+    reason: "Reviewer: The sha parameter in the GitHub merge API is the TOCTOU guard. A commit pushed between validation and merge changes the head SHA, causing the API to return 409 (handled correctly with exit 0). No additional pre-merge fetch is needed."
+  - file: ".github/workflows/auto-merge-planning.yml"
+    keyword: "HTTP 200 as success without verifying the API response body"
+    reason: "Reviewer: GitHub's merge API is documented as returning 200 unambiguously on successful merge. The merged=true field in the body is redundant when HTTP status is 200. The response body IS used in the wildcard error case for diagnostics."
+  - file: ".github/workflows/agent-flow-review-pr.yml"
+    keyword: "synchronize trigger means this review workflow will not re-run"
+    reason: "Reviewer: synchronize was never in the types list for this workflow (it was already [opened, reopened] before TASK-50). This is a pre-existing deliberate design ratified during TASK-44. No regression here."
+
+  # --- TASK-51 auto-tag-on-merge disagreements ---
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-tag-on-merge.yml"
+    keyword: "GH_TOKEN scope for reading refs"
+    reason: "Reviewer: The 'Fail if tag already exists' step correctly sets GH_TOKEN from secrets.GITHUB_TOKEN in its env block. The gh CLI reads GH_TOKEN automatically. secrets.GITHUB_TOKEN with contents: write permission has read access to git/refs by default. This concern is incorrect — the token is present and sufficient."
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-tag-on-merge.yml"
+    keyword: "race between the local/remote check"
+    reason: "Reviewer: The TOCTOU race is a known, accepted, and explicitly documented design decision — the # NOTE: comment in the 'Fail if tag already exists' step states this verbatim. gh release create will fail loudly if the race fires, which is the intended safety net. This is not a regression from the TASK-51 fixes."
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-tag-on-merge.yml"
+    keyword: "release creation still needs an atomic creation strategy"
+    reason: "Reviewer: Same TOCTOU concern — documented as advisory in the NOTE comment. Atomic tag creation is not available via gh CLI in a single idempotent operation without a separate git push step. The current design is intentional."
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-tag-on-merge.yml"
+    keyword: "targeting MERGE_SHA from the pull request payload"
+    reason: "Reviewer: MERGE_SHA is github.event.pull_request.merge_commit_sha — the actual merge commit on main. The checkout step explicitly checks out this same SHA (ref: merge_commit_sha), so the --target is consistent with the checked-out state. This is the correct release target for a merge-triggered workflow."
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-tag-on-merge.yml"
+    keyword: "explicit tag creation/push step would make the release flow clearer"
+    reason: "Reviewer: gh release create --target creates the tag atomically on the GitHub side. A separate git tag + git push step is redundant and would require additional token scopes. The current approach is simpler and correct."
+
+  # --- TASK-54 flat layout: EXT1 consent concerns are pre-existing code not changed in this diff ---
+  - file: ".claude-agent-flow/scripts/lib/consent-utils.sh"
+    keyword: "migrate_mergiraf_consent intentionally returns early"
+    reason: "Reviewer: consent-utils.sh was NOT changed in this diff. This concern targets pre-existing behaviour that was already suppressed in TASK-49 (see 'migration is skipped whenever consent-defaults' entry). Out of scope for TASK-54 flat layout review."
+  - file: "install.sh"
+    keyword: "consent_write_mergiraf is already defined"
+    reason: "Reviewer: install.sh consent code was NOT changed in this diff. The conditional declare -f guard is intentional — if consent_write_mergiraf is absent the write is a no-op and the prompt is still shown for UI continuity. This is a pre-existing accepted design, not introduced by TASK-54."
+  - file: "install.sh"
+    keyword: "prompt_mergiraf is called again after prompt_permissions"
+    reason: "Reviewer: install.sh consent code was NOT changed in this diff. The two call sites are on mutually exclusive code paths (self-install vs fresh-install) separated by an exec branch. This is identical to the TASK-47 suppression already in this file. Out of scope for TASK-54."
+
+  # --- TASK-54 /review EXT1: sync_runtime_workflows source path false positive ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "runtime workflow that is not already present in the source repo's .github/workflows"
+    reason: "Reviewer: The 6 files listed in runtime_workflow_mappings.include (agent-flow-*.yml + auto-merge-planning.yml) ARE the exact files present in .github/workflows/ of the source repo. The reviewer incorrectly assumed runtime workflows live only under .claude-agent-flow/plugin-repo-workflows/. That directory holds CI-only workflows (auto-tag-on-merge, auto-version-bump, plugin-distribution-tests). The source path .github/workflows/ is correct and all listed files exist there."
+
+  # --- TASK-54 flat layout: EXT2 auto-version-bump PLUGIN_JSON false positive ---
+  - file: ".claude-agent-flow/plugin-repo-workflows/auto-version-bump.yml"
+    keyword: "wrong place and fail the jq read"
+    reason: "Reviewer: PLUGIN_JSON was correctly updated from 'plugins/agent-flow/.claude-plugin/plugin.json' to '.claude-plugin/plugin.json' as part of the flat layout migration. The flat layout places plugin.json at .claude-plugin/plugin.json relative to the plugin repo root. The reviewer's claim that this is the wrong path is incorrect — it IS the correct flat-layout path."
+
+  # --- TASK-54 final review: EXT1 backlog-status.sh out of scope ---
+  - file: ".claude-agent-flow/scripts/backlog-status.sh"
+    keyword: "task lookup is keyed only off the numeric suffix"
+    reason: "Reviewer: backlog-status.sh was NOT changed in TASK-54 (introduced in a prior task). This concern is out of scope for the flat layout review. The task file naming convention matches the existing implementation."
+
+  # --- TASK-54 final review: EXT1 install.sh LOCAL_PATH plugin-dir false positive ---
+  - file: "install.sh"
+    keyword: "plugin directory is the repo root"
+    reason: "Reviewer: Passing LOCAL_PATH directly as --plugin-dir IS correct for the flat layout. agent-flow-install.sh reads install-manifest.yml from PLUGIN_DIR/.claude-agent-flow/ which resolves correctly when PLUGIN_DIR is the flat repo root. The old plugins/agent-flow nesting is gone by design."
+
+  # --- TASK-54 final review: EXT2 plugin.json only-version-preserved is by design ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "target-local additions to plugin.json besides version would be lost"
+    reason: "Reviewer: By design, the plugin.json schema is fully controlled by the source repo. Only the version field is target-local (managed by auto-version-bump). No other target-local plugin.json fields exist or are expected. This is intentional, documented behaviour, not a bug."
+
+  # --- TASK-54 final review: EXT2 install.sh consent prompt divergence out of scope ---
+  - file: "install.sh"
+    keyword: "first-run self-install and fresh-install paths can diverge"
+    reason: "Reviewer: The consent-related prompt_mergiraf/prompt_permissions code was added in TASK-47 and pre-dates TASK-54. The TASK-54 changes to install.sh are limited to flat-layout path changes (MARKETPLACE_NAME, MARKETPLACE_REPO, PLUGIN_DIR, plugin.json sentinel). The consent divergence concern targets pre-existing code outside TASK-54 scope."
+
+  # --- TASK-54 external-review: plugin-distribution-tests runtime workflow check false positive ---
+  - file: ".claude-agent-flow/plugin-repo-workflows/plugin-distribution-tests.yml"
+    keyword: "Runtime workflows exist in .claude-agent-flow/workflows"
+    reason: "Reviewer: plugin-distribution-tests.yml line 197 already has a 'Runtime workflows exist in .github/workflows/' step asserting all 6 runtime workflows by name. The external reviewer missed the updated check and incorrectly claimed the assertion was removed. No fix needed."
+
+  # --- TASK-54 quality review: EXT2 installer-reads-mirror false positive ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "installer still reads runtime workflows from .claude-agent-flow/workflows"
+    reason: "Reviewer: The .claude-agent-flow/workflows/ mirror was eliminated in this PR. agent-flow-install.sh reads from .github/workflows/ (set as workflow_files.source in install-manifest.yml). plugin-repo-sync.md line 208 explicitly states 'no separate mirror directory is needed'. EXT2's claim that the installer faces a stale source path is factually incorrect for the post-PR state."
+
+  # --- Eliminated .claude-agent-flow/workflows/ mirror: false positive suppression ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "still reads runtime workflows from"
+    reason: "Reviewer: The .claude-agent-flow/workflows/ mirror was deliberately eliminated. agent-flow-install.sh now reads from .github/workflows/ via workflow_files.source in install-manifest.yml. plugin-repo-sync.md line 208 explicitly documents this. Any claim that the installer reads from the eliminated mirror path is a false positive."
+
+  # --- TASK-55 root layout: EXT1 hooks exclusion false positive ---
+  - file: ".claude-agent-flow/publish-plugin-manifest.yml"
+    keyword: "hooks also added to global_excludes"
+    reason: "Reviewer: The 'hooks' global_exclude is intentional and does NOT block the dedicated hooks/ mapping. rsync --exclude=hooks applies relative to each transfer root: for the .claude-agent-flow/ directory sync it excludes the hooks/ subdirectory (preventing double-sync); for the dedicated .claude-agent-flow/hooks/ -> hooks/ mapping, the transfer root IS hooks/ so no subdirectory named 'hooks' exists to match. The hooks/ content is correctly published via the dedicated mapping."
+
+  # --- TASK-55 root layout: EXT1 rm -rf destructive path false positive ---
+  - file: ".claude-agent-flow/scripts/publish-plugin-repo-sync.sh"
+    keyword: "rm -rf deletes them without any backup"
+    reason: "Reviewer: The rm -rf of a pre-existing .claude/agents real directory is intentional migration behaviour, fully documented in plugin-repo-sync-migration.md. The migration guide instructs operators to remove old real directories before running sync. The script handles the case where the operator skips the manual step by cleaning up automatically. This is documented, expected, and tested by BATS test 34."
+
+  # --- TASK-56 sandbox clone option: EXT2 HTML structure false positive ---
+  - file: "docs/public/getting-started.html"
+    keyword: "broken closing structure"
+    reason: "Reviewer: All divs in the inserted block are correctly balanced. The border-top div opens at line 519 and closes at 537; the scope-card closes at 538. The HTML parser and visual-check.sh (PASS at 375/768/1280px) confirm no layout regression. The 'broken closing structure' claim is a false positive."
+
+  # --- TASK-56 sandbox clone option: EXT2 unattended-mode tip page-structure concern is pre-existing ---
+  - file: "docs/public/getting-started.html"
+    keyword: "changes the page structure beyond the sandbox card"
+    reason: "Reviewer: The 'Tip: unattended mode' block at line 580 is pre-existing work from commit 5b8cf90, predating TASK-56. This concern is out of scope for the TASK-56 sandbox clone option review."
+
+  # --- TASK-57 re-review: EXT1 task-57 In Progress status while AC complete ---
+  - file: "backlog/tasks/task-57 - Technology-Agnostic-Agent-Flow-Plugin.md"
+    keyword: "Status is changed to In Progress while the acceptance criteria are all marked complete"
+    reason: "Reviewer: Task is mid-pipeline at re-review phase. 'Ready for Review' is set in Phase 5c only after all pipeline phases complete. 'In Progress' with completed AC is correct workflow state during the review loop."

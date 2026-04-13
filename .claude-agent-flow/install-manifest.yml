@@ -22,6 +22,7 @@ merge_files:
       - "Visual Layout Verification"
       - "Document Folder Auto-Suggest"
       - "Backlog Workflow"
+      - "Technology Stack"
 
   - path: .claude/settings.json
     strategy: json-deep-merge
@@ -106,3 +107,10 @@ sandbox_mappings:
     target: .claude-agent-flow/LICENSE
   - source: THIRD_PARTY_LICENSES.md
     target: .claude-agent-flow/THIRD_PARTY_LICENSES.md
+
+# ── Paths never synced (informational) ─────────────────────────────
+excluded_paths:
+  - "backlog/"
+  - "plans/"
+  - ".env"       # Never synced — may contain secrets
+  - "TECHSTACK.md"  # Project-specific — each project generates its own via explorer detection

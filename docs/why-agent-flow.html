@@ -134,6 +134,8 @@
     .phil-stripe-bar.opus  { background: var(--opus); }
     .phil-stripe-bar.blue  { background: var(--blue); }
     .phil-stripe-bar.fail  { background: var(--fail); }
+    .phil-stripe-bar.haiku { background: var(--haiku); }
+    .phil-stripe-label.haiku { color: var(--haiku); }
     .phil-stripe-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
     .phil-stripe-label.opus  { color: var(--opus); }
     .phil-stripe-label.blue  { color: var(--blue); }
@@ -330,6 +332,21 @@
         <span class="pillar-bg-num" aria-hidden="true">02</span>
       </div>
     </div>
+
+    <!-- ── TECH AGNOSTICISM ────────────────────────────────────────── -->
+    <section class="section-block" aria-labelledby="agnostic-title">
+      <div class="phil-stripe">
+        <div class="phil-stripe-bar haiku" aria-hidden="true"></div>
+        <span class="phil-stripe-label haiku">Key Differentiator</span>
+      </div>
+      <h2 class="section-title" id="agnostic-title">Works with any technology stack</h2>
+      <p class="section-lead">The pipeline adapts to your project, not the other way around. Builder agents read <code style="font-family: var(--mono); background: var(--surface-alt); padding: 2px 5px; border-radius: 4px; font-size: 0.95em;">TECHSTACK.md</code> — auto-detected from your codebase — instead of assuming React, Node, or Postgres.</p>
+      <div class="section-prose">
+        <p><strong>Auto-detection on first run.</strong> The explorer agent scans CLAUDE.md, package files, config files, and code patterns to detect your stack and propose a TECHSTACK.md profile. You review before it's created.</p>
+        <p><strong>Manual edits are authoritative.</strong> Add entries for technologies you intend to use (future intentions). The explorer will never overwrite your additions without asking. TECHSTACK.md is your desire sheet as much as an auto-generated profile.</p>
+        <p><strong>Works by reference, not by value.</strong> Agents receive a pointer to TECHSTACK.md, not the full content in their brief. Each agent reads only the sections it needs. No token bloat.</p>
+      </div>
+    </section>
 
     <!-- ── THE ADVERSARIAL LOOP ─────────────────────────────────── -->
     <section class="section-block" aria-labelledby="loop-title">
@@ -565,7 +582,7 @@
           <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
           <div class="roster-text">
             <div class="roster-name">frontend</div>
-            <div class="roster-role">UI, React, TypeScript, Tailwind</div>
+            <div class="roster-role">UI components, styling, client-side state</div>
             <div class="roster-badges"><span class="roster-badge">🌐 Playwright</span></div>
           </div>
         </div>
@@ -573,7 +590,7 @@
           <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
           <div class="roster-text">
             <div class="roster-name">backend</div>
-            <div class="roster-role">API, DB queries, Auth, Supabase</div>
+            <div class="roster-role">API routes, business logic, data persistence, auth</div>
           </div>
         </div>
         <div class="roster-item">
