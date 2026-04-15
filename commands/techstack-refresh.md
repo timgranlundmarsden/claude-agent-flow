@@ -55,7 +55,7 @@ Use Glob to check whether `TECHSTACK.md` exists at the project root. This is the
 ### Step 2 — Run explorer
 
 Invoke the **Explorer** (subagent_type="explorer") with this explicit brief:
-"Run the Technology Discovery Protocol for this project. TECHSTACK.md is [missing / stale — last scanned: <datetime> / fresh (last_scanned: <datetime>) but --force was passed — treat as Case C and return a diff]. Override your internal Case B/C timestamp routing for this invocation — the orchestrator has already determined freshness; follow the case stated in the brackets above, not the timestamp. Follow the matching case (A or C) exactly and return a `TECHSTACK DISCOVERY:` section with the required output. If TECHSTACK.md is missing, return either A1 (full proposed content) or A2 (greenfield note) — never skip."
+"Run the Technology Discovery Protocol for this project. TECHSTACK.md is [missing / stale — last scanned: <datetime> / fresh — last scanned: <datetime>, but --force flag is active so treat as Case C]. Follow the matching case (A or C) exactly and return a `TECHSTACK DISCOVERY:` section with the required output. If TECHSTACK.md is missing, return either A1 (full proposed content) or A2 (greenfield note) — never skip."
 
 ### Step 3 — Handle explorer output
 
