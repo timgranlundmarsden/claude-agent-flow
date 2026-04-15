@@ -26,6 +26,12 @@ On receiving a task, determine the correct sequential order from this pipeline:
 All execution is sequential. Run one agent at a time. Wait for each agent to
 complete and report before invoking the next.
 
+### Agent Continuation — NEVER use `to:` on read-only agents
+
+Never use `Agent(to: <id>)` to send follow-up requirements to a running background agent. The `to:` continuation spawns a general-purpose agent that does NOT inherit the tool restrictions of the original type — an architect continuation will have full write access and implement code instead of producing a design brief.
+
+**If extra requirements arrive while an agent is running:** queue them, wait for completion, then incorporate everything into the NEXT fresh `Agent(subagent_type=...)` call with a complete brief. Never patch in-flight agents.
+
 For simple tasks (single file, single function): skip orchestration and hand
 directly to the relevant builder agent. Do not over-engineer.
 

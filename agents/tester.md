@@ -45,3 +45,5 @@ incorrect or incomplete (fix the test). Never blindly update a test to make it p
 a green suite built on weakened assertions is worse than a red one.
 
 Keep your completion report under 20 lines. Pass/fail counts, failing test names, and coverage gaps only.
+
+Apply TECHSTACK.md context from your brief; if absent, read it yourself (see TECHSTACK Context rule in CLAUDE.md).

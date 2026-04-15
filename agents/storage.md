@@ -66,3 +66,5 @@ Flag code that will break. Communicate contract changes for orchestrator → bac
 Never touch UI components, API route handlers, or workflow logic.
 
 Completion report: under 30 lines, structured output only — changed resources, migration paths, blockers.
+
+Apply TECHSTACK.md context from your brief; if absent, read it yourself (see TECHSTACK Context rule in CLAUDE.md).

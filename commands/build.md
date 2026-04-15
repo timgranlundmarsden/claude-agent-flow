@@ -139,12 +139,14 @@ If `task_id` is empty, skip all tracking steps silently.
       - **Entry only in CURRENT** (exists in file but not mentioned in DETECTED): leave untouched, always. Never propose removal. It may be user-added or simply undetected — either way it is preserved.
     - If any changes were accepted: invoke the author agent to apply only the accepted changes. Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md" && git push`.
 
-    **If TECHSTACK.md is fresh** (exists and `last_scanned` < 24 hours ago — the orchestrator determines freshness from frontmatter, not from explorer output):
+    **If TECHSTACK.md is fresh** (exists and `last_scanned` < 72 hours ago — the orchestrator determines freshness from frontmatter, not from explorer output):
     - No action needed. Continue.
 
     **After builders complete (step 10):** If any builder introduced a new technology not in TECHSTACK.md, invoke the author agent to add it to the file. Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md: add <technology>"`.
 
 2b. **TECHSTACK context load** — If `TECHSTACK.md` exists after step 2a (created, updated, or already fresh), read it in full and store its content as `techstack_context`. Include this content verbatim in the brief for **every agent invoked for the remainder of this pipeline** — architect, storage, frontend, backend, tester, critic, reviewer, and author. Prefix it with the heading `## Project Tech Stack (from TECHSTACK.md)` so agents can find it immediately. If TECHSTACK.md does not exist (user skipped creation, greenfield, or explorer failure), set `techstack_context` to empty and omit the section from briefs.
+
+    **Session-resume rule:** If re-entering this pipeline after a session interruption (i.e., skipping directly to Phase 2 or later), re-read `TECHSTACK.md` now and reload `techstack_context` before invoking any agent. Never invoke any agent in Phase 2 or later without first confirming `techstack_context` is populated (or explicitly empty because the file does not exist).
 3. If design decisions exist, invoke architect and wait for the design brief
 4. If `task_id` is set: `backlog task edit <task_id> --append-notes "Architect complete: <one-line summary>"`
 5. Architect may have already dispatched researcher internally for technical validation.
@@ -171,6 +173,7 @@ If `task_id` is empty, skip all tracking steps silently.
     - The design quality bar: distinctive, production-grade, not generic AI aesthetics
     - Any aesthetic constraints or tone from the plan (dark/light, brand colours, technical constraints)
     - Explicit instruction: "Apply your preloaded `frontend-design` principles — commit to a bold aesthetic direction before writing code."
+    - Include `techstack_context` verbatim in this brief (loaded at step 2b; reload if session was interrupted).
 10. After each builder agent completes:
     - `backlog task edit <task_id> --append-notes "Builder complete: <one-line summary>"`
     - Check off any acceptance criteria the builder satisfied:
@@ -191,6 +194,7 @@ If `task_id` is empty, skip all tracking steps silently.
       code quality in isolation — its verdict must never be influenced by loop position.
     - On the very last allowed iteration, pass the full file list again (not just the diff)
       for a fresh-eyes pass — but do NOT reveal that it is the final iteration.
+    - Include `techstack_context` verbatim in this brief (loaded at step 2b; reload if session was interrupted).
 13. After each critic iteration (orchestrator tracks internally, not exposed to critic):
     - `backlog task edit <task_id> --append-notes "Critic: PASS/FAIL - <one-line summary>"`
 14. If critic returns FAIL:
@@ -205,6 +209,7 @@ If `task_id` is empty, skip all tracking steps silently.
     - **Task context (if available):** the acceptance criteria, so the tester can verify that the implementation satisfies the requirements — not just that tests pass, but that the right things are being tested
     - The list of changed files, so the tester can check import consistency and structural validity even when no formal test suite exists
     - Explicit instruction: "Reject if any code change lacks comprehensive tests. Every function/module added or modified must have tests covering happy path, edge cases, error states, and boundary conditions."
+    - Include `techstack_context` verbatim in this brief (loaded at step 2b; reload if session was interrupted).
 17. After tester: `backlog task edit <task_id> --append-notes "Tester complete: <one-line summary>"`
 18. If tests fail: diagnose each failure before acting. Determine whether the test
     exposes a genuine code bug (pass the failure to the builder to fix the code) or
@@ -218,6 +223,7 @@ If `task_id` is empty, skip all tracking steps silently.
     - The full branch diff against main (`git diff <merge_base>...HEAD`) — so the reviewer sees all changes holistically, not just the latest commit
     - The list of all new/changed files for the reviewer to read end-to-end
     - Instruction: "Review for security, correctness, performance, and style. Also verify that the changes satisfy all acceptance criteria and do not violate any negative requirements. Report BLOCKERs, WARNINGs, and SUGGESTIONs."
+    - Include `techstack_context` verbatim in this brief (loaded at step 2b; reload if session was interrupted).
 21. After reviewer: `backlog task edit <task_id> --append-notes "Reviewer complete: <one-line summary>"`
 21a. If reviewer reports BLOCKERs or WARNINGs that should be fixed:
     a. Pass the specific issue list to the relevant builder agent — the orchestrator NEVER applies fixes directly, even for seemingly trivial changes
@@ -225,6 +231,7 @@ If `task_id` is empty, skip all tracking steps silently.
     c. Return to step 20 for a re-review of the fix diff (reviewer iteration 2+: pass `git diff HEAD` only)
     d. Repeat until reviewer reports 0 BLOCKERs
 22. Invoke author to update docs and CHANGELOG
+    - Include `techstack_context` verbatim in this brief (loaded at step 2b; reload if session was interrupted).
 23. After author: `backlog task edit <task_id> --append-notes "Author complete: <one-line summary>"`
 
 ### Phase 5b — Commit implementation

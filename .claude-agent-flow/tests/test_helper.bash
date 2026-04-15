@@ -55,7 +55,7 @@ YAML
   fi
 }
 
-# Extract canonical owner/repo from a git remote URL (SSH or HTTPS, with or without .git)
+# Extract canonical owner/repo from a git remote URL (SSH, HTTPS, or local proxy)
 _parse_owner_repo() {
   local url="$1"
   # Strip trailing .git
@@ -63,6 +63,9 @@ _parse_owner_repo() {
   # SSH: git@github.com:owner/repo -> owner/repo
   if [[ "$url" == git@* ]]; then
     echo "${url#*:}"
+  # Local proxy (Claude Code web env): http://user@127.0.0.1:<port>/git/<owner>/<repo> -> owner/repo
+  elif [[ "$url" =~ ^http://[^@]+@(127\.0\.0\.1|localhost):[0-9]+/git/ ]]; then
+    echo "$url" | sed -E 's|^http://[^@]+@[^/]+/git/||'
   # HTTPS: https://github.com/owner/repo -> owner/repo
   elif [[ "$url" == https://* || "$url" == http://* ]]; then
     echo "${url}" | sed 's|https\{0,1\}://[^/]*/||'

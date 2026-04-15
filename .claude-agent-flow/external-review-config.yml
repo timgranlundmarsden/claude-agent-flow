@@ -1487,3 +1487,17 @@ suppress:
   - file: "backlog/tasks/task-57 - Technology-Agnostic-Agent-Flow-Plugin.md"
     keyword: "Status is changed to In Progress while the acceptance criteria are all marked complete"
     reason: "Reviewer: Task is mid-pipeline at re-review phase. 'Ready for Review' is set in Phase 5c only after all pipeline phases complete. 'In Progress' with completed AC is correct workflow state during the review loop."
+  # --- TASK-58: EXT2 false positive — forced no-change commit path ---
+  - file: ".claude/commands/techstack-refresh.md"
+    keyword: "author agent/commit step"
+    reason: "Reviewer: The force_mode no-change branch (line 84) explicitly instructs the orchestrator to update last_scanned, commit, and push — it is self-contained and does not route through the author agent. The author agent is only for writing new file content. EXT2 conflates 'commit step' with 'author agent invocation'; the control flow is correct and unambiguous."
+  # --- TASK-60: External review findings out of scope ---
+  - file: ".claude-agent-flow/tests/agent-flow-techstack-refresh.bats"
+    keyword: "freshness boundary 72h assertion"
+    reason: "Reviewer: This file belongs to TASK-58, not TASK-60. The concern about test specificity is a TASK-58 quality matter. Out of scope for this TASK-60 review."
+  - file: ".claude/commands/techstack-refresh.md"
+    keyword: "force fresh scan control-flow"
+    reason: "Reviewer: techstack-refresh.md is a TASK-58 file. The EXT2 routing concern is pre-existing and outside TASK-60 scope. Out of scope for this review."
+  - file: "backlog/tasks/task-58 - Add-force-flag-to-techstack-refresh-and-increase-staleness-threshold-to-72h.md"
+    keyword: "no-change path Step 3 Step 4"
+    reason: "Reviewer: Backlog task file for TASK-58; out of scope for TASK-60 review. EXT2 concern about wording clarity is a TASK-58 documentation matter."

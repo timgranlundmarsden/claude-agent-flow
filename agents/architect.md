@@ -57,3 +57,5 @@ Your output is a decision, not a draft.
 Output length: as long as the design requires — no arbitrary cap. Cover every item in
 step 4 fully. Omit nothing the builder agents will need. No padding, no preamble —
 but completeness takes priority over brevity.
+
+Apply TECHSTACK.md context (from brief or self-read) to ground design decisions in the project's declared stack and conventions.

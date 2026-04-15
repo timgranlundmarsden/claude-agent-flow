@@ -28,10 +28,10 @@ When invoked:
       - **A2 — Greenfield (nothing detected across all five source categories):** Emit a `TECHSTACK DISCOVERY:` section containing only the frontmatter and the literal note: `Greenfield: no stack detected — user input required before writing.` The orchestrator will ask the user what stack they intend to use.
     - Do NOT write the file yourself — you are read-only. The orchestrator handles confirmation and writing.
 
-    **Case B — TECHSTACK.md is present and `last_scanned` < 24 hours ago (fresh):**
+    **Case B — TECHSTACK.md is present and `last_scanned` < 72 hours ago (fresh):**
     - Read and trust it. Note `TECHSTACK.md: fresh (last_scanned: <datetime>)` in your output. No TECHSTACK DISCOVERY section needed.
 
-    **Case C — TECHSTACK.md is present and `last_scanned` >= 24 hours ago (stale):**
+    **Case C — TECHSTACK.md is present and `last_scanned` >= 72 hours ago (stale):**
     - The orchestrator will include the current `TECHSTACK.md` content in your brief. If it was not included, read it yourself before scanning.
     - Re-scan the project using the same sources as Case A.
     - Compare each auto-generated section against the existing file. Identify: new entries detected that are not in the file, existing entries that appear outdated or incorrect based on the scan.

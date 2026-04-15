@@ -39,3 +39,5 @@ Never touch UI components, styling, or browser APIs.
 Note API contract changes in your completion report so orchestrator can brief frontend.
 
 Completion report: under 30 lines, structured output only — file paths, decisions, blockers.
+
+Apply TECHSTACK.md context from your brief; if absent, read it yourself (see TECHSTACK Context rule in CLAUDE.md).

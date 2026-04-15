@@ -69,3 +69,5 @@ Never touch server code, database logic, or infrastructure files.
 Note backend dependencies in your completion report.
 
 Completion report: under 30 lines, structured output only — file paths, decisions, blockers.
+
+Apply TECHSTACK.md context from your brief; if absent, read it yourself (see TECHSTACK Context rule in CLAUDE.md).

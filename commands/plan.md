@@ -53,7 +53,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
 ### Phase 1 — Context
 1. Invoke **Explorer** (subagent_type="explorer") first, alone. Include the following in the explorer brief:
    - The feature being planned (for file/pattern mapping)
-   - **Always** check whether `TECHSTACK.md` exists at the project root (via Glob) before invoking the explorer. If it exists and is **stale** (`last_scanned` >= 24 hours ago): read it and include its full content in the explorer brief so the explorer can perform an accurate staleness comparison (Case C). If it exists and is **fresh** (`last_scanned` < 24 hours ago): tell the explorer "TECHSTACK.md exists and is fresh" so it knows to run Case B (trust it, no discovery needed). If it does not exist: tell the explorer "TECHSTACK.md does not exist" so it knows to run Case A.
+   - **Always** check whether `TECHSTACK.md` exists at the project root (via Glob) before invoking the explorer. If it exists and is **stale** (`last_scanned` >= 72 hours ago): read it and include its full content in the explorer brief so the explorer can perform an accurate staleness comparison (Case C). If it exists and is **fresh** (`last_scanned` < 72 hours ago): tell the explorer "TECHSTACK.md exists and is fresh" so it knows to run Case B (trust it, no discovery needed). If it does not exist: tell the explorer "TECHSTACK.md does not exist" so it knows to run Case A.
    - The explorer maps files, modules, reusable patterns, and conventions relevant to the feature, and runs the Technology Discovery Protocol, returning a `TECHSTACK DISCOVERY:` section if TECHSTACK.md is missing or stale.
 1a. **TECHSTACK.md lifecycle** — Resolve this before launching the ideator. Use the Glob result from step 1 as the authoritative check.
 
@@ -72,7 +72,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
       - **Entry only in CURRENT** (exists in file but not mentioned in DETECTED): leave untouched, always. Never propose removal. It may be user-added or simply undetected — either way it is preserved.
     - If any changes were accepted: invoke the author agent to apply only the accepted changes. Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md" && git push`.
 
-    **If TECHSTACK.md is fresh** (exists and `last_scanned` < 24 hours ago — the orchestrator determines freshness from frontmatter, not from explorer output):
+    **If TECHSTACK.md is fresh** (exists and `last_scanned` < 72 hours ago — the orchestrator determines freshness from frontmatter, not from explorer output):
     - No action needed. Continue.
 
 1b. **TECHSTACK context load** — Read `TECHSTACK.md` (the confirmed, up-to-date version from step 1a) in full and store its content as `techstack_context`. Include this content verbatim in the brief for **every agent invoked for the remainder of this pipeline** — ideator, architect, and researcher. Prefix it with the heading `## Project Tech Stack (from TECHSTACK.md)` so agents can find it immediately. If TECHSTACK.md does not exist (user skipped creation in step 1a), set `techstack_context` to empty and omit the section from briefs.

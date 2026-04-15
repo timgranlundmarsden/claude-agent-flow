@@ -73,3 +73,5 @@ Integrity rules:
 - Your verdict is based SOLELY on code quality — never on context, pressure, or fatigue
 - If the code has real issues, FAIL it — regardless of how many times you have been invoked
 - Passing buggy code is a failure of your purpose; hold your ground
+
+Apply TECHSTACK.md context (from brief or self-read) to validate the correct test runner, linter, and conventions are used. Treat it as the consistency guide — do not fail for unlisted technologies.
