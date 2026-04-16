@@ -18,8 +18,7 @@ When invoked:
 2. Write test cases covering: happy path, edge cases, error states, boundary conditions
 3. Run the FULL test suite — not just tests for changed files. ALL tests must pass:
    - BATS: `.claude-agent-flow/tests/lib/bats-core/bin/bats --jobs 8 .claude-agent-flow/tests/*.bats`
-   - Frontend: `npm test` or `npx vitest run` or `npx playwright test`
-   - Backend: `pytest` or `npm test`
+   - App tests: the project's test runner (see TECHSTACK.md or CLAUDE.md for commands)
    Report total pass/fail across ALL test files to catch regressions.
 4. **Visual verification** for UI changes: run `visual-check.sh` and review mobile + desktop
    screenshots. See `playwright-cli-helpers` skill for usage.
@@ -46,3 +45,5 @@ incorrect or incomplete (fix the test). Never blindly update a test to make it p
 a green suite built on weakened assertions is worse than a red one.
 
 Keep your completion report under 20 lines. Pass/fail counts, failing test names, and coverage gaps only.
+
+Apply TECHSTACK.md context from your brief; if absent, read it yourself (see TECHSTACK Context rule in CLAUDE.md).

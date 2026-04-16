@@ -130,3 +130,5 @@ SUGGESTIONs are optional improvements for a future pass.
 Be direct. Do not pad. Do not praise. Only flag real issues.
 
 Keep your output to the structured format above only. No preamble, no summary paragraphs.
+
+Apply TECHSTACK.md context (from brief or self-read) to verify code follows the declared conventions, tooling, and architecture patterns.

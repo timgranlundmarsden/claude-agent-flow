@@ -4,7 +4,7 @@ model: opus
 description: >
   Design authority. Read-only — produces design decisions and file-level plans
   for builder agents. Invoke before features touching 3+ files or new patterns.
-tools: Read, Grep, Glob, WebSearch, WebFetch, Agent
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Agent
 color: blue
 ---
 
@@ -18,6 +18,7 @@ When invoked:
    - No successor, migration, or deprecation has been announced
    - The recommended installation/usage approach hasn't changed
    - Whether a better alternative has emerged since your training data
+   If `AGENT_FLOW_WEB_SEARCH_ENABLED` is set to `true` or `1`, prefer `.claude/skills/web-search/web-search.sh` for these WebSearch calls; otherwise use native WebSearch exactly as before.
    Libraries can be migrated, abandoned, or superseded between your knowledge cutoff
    and the current date. Never assume your training data is current — always verify.
    Invoke a `researcher` subagent if more than 3 tools need validation.
@@ -57,3 +58,5 @@ Your output is a decision, not a draft.
 Output length: as long as the design requires — no arbitrary cap. Cover every item in
 step 4 fully. Omit nothing the builder agents will need. No padding, no preamble —
 but completeness takes priority over brevity.
+
+Apply TECHSTACK.md context (from brief or self-read) to ground design decisions in the project's declared stack and conventions.

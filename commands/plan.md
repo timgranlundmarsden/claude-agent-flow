@@ -51,10 +51,32 @@ fi
 Never commit directly to main. Create a `claude/` feature branch first.
 
 ### Phase 1 — Context
-1. Launch these agents in parallel (single message, multiple Agent tool calls):
-   - **Explore 1** (subagent_type="Explore"): Map files and modules relevant to the feature
-   - **Explore 2** (subagent_type="Explore"): Find reusable patterns, utilities, and conventions
-   - **Ideator** (subagent_type="ideator"): Generate 3-5 meaningfully different approaches
+1. Invoke **Explorer** (subagent_type="explorer") first, alone. Include the following in the explorer brief:
+   - The feature being planned (for file/pattern mapping)
+   - **Always** check whether `TECHSTACK.md` exists at the project root (via Glob) before invoking the explorer. If it exists and is **stale** (`last_scanned` >= 72 hours ago): read it and include its full content in the explorer brief so the explorer can perform an accurate staleness comparison (Case C). If it exists and is **fresh** (`last_scanned` < 72 hours ago): tell the explorer "TECHSTACK.md exists and is fresh" so it knows to run Case B (trust it, no discovery needed). If it does not exist: tell the explorer "TECHSTACK.md does not exist" so it knows to run Case A.
+   - The explorer maps files, modules, reusable patterns, and conventions relevant to the feature, and runs the Technology Discovery Protocol, returning a `TECHSTACK DISCOVERY:` section if TECHSTACK.md is missing or stale.
+1a. **TECHSTACK.md lifecycle** — Resolve this before launching the ideator. Use the Glob result from step 1 as the authoritative check.
+
+    **If TECHSTACK.md is missing** (file does not exist):
+    - The explorer MUST have returned a `TECHSTACK DISCOVERY:` section (Case A). Check which outcome:
+      - **A2 — Greenfield:** The section contains the note `Greenfield: no stack detected`. Note this to the user: "No existing tech stack detected — the technology choices will emerge from brainstorming and design." Set `techstack_context` to empty and continue to step 1b. TECHSTACK.md will be created later when `/build` runs (its step 2a handles post-builder stack declaration) or via `/techstack-refresh`.
+      - **A1 — Stack detected:** The section contains a full proposed TECHSTACK.md. Proceed to confirmation below.
+    - If the explorer did NOT return a `TECHSTACK DISCOVERY:` section at all: this is an explorer protocol failure. Ask the user via `AskUserQuestion`: "Explorer did not return TECHSTACK data as required. Retry?" (options: Retry / Continue without stack context). If retry: re-invoke explorer with the same brief. If the second run also returns nothing, warn the user: "Explorer failed to return TECHSTACK data after two attempts. Continuing without stack context — run `/techstack-refresh` later to create it." Set `techstack_context` to empty and continue to step 1b.
+    - **Confirmation:** Ask via `AskUserQuestion`: "TECHSTACK.md is missing. Confirm creating it with the proposed content?" (options: Confirm as-is / Review first / Skip for now).
+    - If confirmed: invoke the author agent: "Write the following content verbatim to `TECHSTACK.md` at the project root: <paste full proposed content>". Commit: `git add TECHSTACK.md && git commit -m "Add TECHSTACK.md" && git push`.
+
+    **If TECHSTACK.md is stale** (explorer returned a `TECHSTACK DISCOVERY:` section with changes):
+    - Read the existing `TECHSTACK.md` in full. Apply these rules to each entry in the explorer's diff:
+      - **Net-new entry** (DETECTED section/key has no exact match anywhere in the current file): before auto-adding, scan the full file for any semantically equivalent entry (same concept expressed differently, e.g. "Python 3" vs "Python"). If a semantic match is found, treat it as a **conflicting entry** instead. Only auto-add if no exact or semantic match exists anywhere in the file.
+      - **Conflicting entry** (DETECTED value for a key that already exists — exactly or semantically — with a different value): ask via `AskUserQuestion` — show CURRENT vs DETECTED, let the user keep current, accept detected, or skip.
+      - **Entry only in CURRENT** (exists in file but not mentioned in DETECTED): leave untouched, always. Never propose removal. It may be user-added or simply undetected — either way it is preserved.
+    - If any changes were accepted: invoke the author agent to apply only the accepted changes. Commit: `git add TECHSTACK.md && git commit -m "Update TECHSTACK.md" && git push`.
+
+    **If TECHSTACK.md is fresh** (exists and `last_scanned` < 72 hours ago — the orchestrator determines freshness from frontmatter, not from explorer output):
+    - No action needed. Continue.
+
+1b. **TECHSTACK context load** — Read `TECHSTACK.md` (the confirmed, up-to-date version from step 1a) in full and store its content as `techstack_context`. Include this content verbatim in the brief for **every agent invoked for the remainder of this pipeline** — ideator, architect, and researcher. Prefix it with the heading `## Project Tech Stack (from TECHSTACK.md)` so agents can find it immediately. If TECHSTACK.md does not exist (user skipped creation in step 1a), set `techstack_context` to empty and omit the section from briefs.
+1c. Invoke **Ideator** (subagent_type="ideator"): generate 3-5 meaningfully different approaches to the feature.
 2. Present a 2-3 line summary of what exists and what will be affected
 3. Present the ideator's approaches as starting material for brainstorming
 
@@ -107,6 +129,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
 8. Wait for architect's design brief. Verify it contains a "Research Validation" section.
    If missing, send the architect a follow-up message requesting it validate all external
    dependencies against current web sources before proceeding.
+8a. **TECHSTACK.md awareness** — If architect's design introduces new technologies not listed in `TECHSTACK.md`, note them in a `NEW TECHNOLOGIES:` subsection of the architect's completion notes. These will be added to TECHSTACK.md after the build completes (handled by `/build` step 2a).
 
 ### Phase 4 — Save
 9. Create the plans/ directory at the project root if it does not exist
@@ -168,7 +191,7 @@ Never commit directly to main. Create a `claude/` feature branch first.
     | `## Edge cases` | `--notes` | Full section verbatim, prefix with "Edge Cases:" |
     | `**Skills:**` line | append to `--notes` | If present, append after edge cases |
     | `task_priority` from Phase 2 | `--priority` | high / medium / low |
-    | Inferred labels | `-l` | UI/React/CSS → frontend, API/server → backend, schema/DB → storage, docs → docs; always add feature unless clearly refactor/bugfix; max 3 |
+    | Inferred labels | `-l` | UI/styling/components → frontend, API/server → backend, schema/DB → storage, docs → docs; always add feature unless clearly refactor/bugfix; max 3 |
     | Plan file path | `--ref` | Bidirectional link |
 
     Example command shape (adapt content from plan):

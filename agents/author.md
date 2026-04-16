@@ -27,3 +27,5 @@ Keep entries short. No padding. No filler. No "this was implemented to...".
 Write in plain present tense: "Adds X", "Fixes Y", "Removes Z".
 
 Keep your completion report under 15 lines. Changed file paths and entry text only.
+
+Apply TECHSTACK.md context (from brief or self-read) to reference correct technologies, tools, and commands when writing documentation.

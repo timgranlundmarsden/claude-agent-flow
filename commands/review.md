@@ -87,7 +87,15 @@ If no task ID is found: set `task_id` to empty and proceed without tracking. No 
 
 ### Phase 1 — Review
 
-1. Invoke explorer to map the relevant files (use the changed files list from Phase 0 as the starting point)
+1. Invoke explorer to map the relevant files (use the changed files list from Phase 0 as the starting point). The explorer runs the Technology Discovery Protocol automatically and will return a `TECHSTACK DISCOVERY:` section if TECHSTACK.md is missing or stale. If TECHSTACK.md exists and is stale, include its full content in the explorer brief so it can perform Case C comparison. If fresh, tell the explorer "TECHSTACK.md exists and is fresh".
+1a. **TECHSTACK.md check (read-only)** — `/review` is inspection only. Use Glob to check whether `TECHSTACK.md` exists at the project root. Combine the Glob result with the explorer's output to determine the state, then note the result in the review report. Take no write action.
+    - **If missing — A2 greenfield** (explorer returned a `TECHSTACK DISCOVERY:` section containing `Greenfield: no stack detected`): surface as: "NOTE: TECHSTACK.md is missing — this is a greenfield repo with no detectable stack. Run `/techstack-refresh` to declare the intended stack."
+    - **If missing — protocol failure** (explorer returned no `TECHSTACK DISCOVERY:` section at all): surface as: "WARNING: TECHSTACK.md is missing and the explorer failed to return discovery data (protocol failure). Run `/techstack-refresh` to diagnose."
+    - **If missing — A1 stack detected** (explorer returned a full `TECHSTACK DISCOVERY:` section): surface as: "NOTE: TECHSTACK.md is missing but stack was detected — run `/techstack-refresh` to create it."
+    - **If stale** (explorer returned a `TECHSTACK DISCOVERY:` section with changes): surface as: "NOTE: TECHSTACK.md may be stale — run `/techstack-refresh` to update it." Do not modify the file.
+    - **If fresh:** no action needed.
+1b. **TECHSTACK context load** — If `TECHSTACK.md` exists, read it in full and store its content as `techstack_context`. Include this content verbatim in the brief for **every agent invoked for the remainder of this pipeline** — critic, tester, reviewer, and any builder agents invoked to fix issues. Prefix it with the heading `## Project Tech Stack (from TECHSTACK.md)` so agents can find it immediately. If TECHSTACK.md does not exist, set `techstack_context` to empty and omit the section from briefs.
+
 2. Invoke critic with exactly this context:
    - **Task context (if available):** include the task's acceptance criteria and description so the critic can verify the changes deliver what was requested — not just code quality but also completeness against requirements
    - **First invocation:** pass the list of new/changed files for the critic to read (from the branch diff against main)

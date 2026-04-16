@@ -21,31 +21,172 @@ mkdir -p "$CACHE_DIR"
 cache_read() {
   # cache_read <top-key> <sub-key>  → prints JSON value or nothing
   [[ ! -f "$CACHE_FILE" ]] && return
-  python3 - "$1" "$2" "$CACHE_FILE" <<'EOF'
-import json, sys
-key, subkey, path = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    d = json.load(open(path))
-    v = d.get(key, {}).get(subkey)
-    if v is not None:
-        print(json.dumps(v))
-except Exception:
-    pass
-EOF
+  jq -c --arg k "$1" --arg s "$2" '.[$k][$s] // empty' "$CACHE_FILE" 2>/dev/null
 }
 
 cache_write() {
   # cache_write <top-key> <sub-key> <json-value>
-  python3 - "$1" "$2" "$3" "$CACHE_FILE" <<'EOF'
-import json, os, sys
-key, subkey, value, path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-d = {}
-if os.path.exists(path):
-    try: d = json.load(open(path))
-    except Exception: pass
-d.setdefault(key, {})[subkey] = json.loads(value)
-json.dump(d, open(path, 'w'))
-EOF
+  local _cw_tmp
+  _cw_tmp=$(mktemp)
+  if [[ -f "$CACHE_FILE" ]]; then
+    jq --arg k "$1" --arg s "$2" --argjson v "$3" \
+      '.[$k] //= {} | .[$k][$s] = $v' "$CACHE_FILE" 2>/dev/null > "$_cw_tmp" \
+      && mv "$_cw_tmp" "$CACHE_FILE" || rm -f "$_cw_tmp"
+  else
+    jq -n --arg k "$1" --arg s "$2" --argjson v "$3" \
+      '{($k): {($s): $v}}' 2>/dev/null > "$CACHE_FILE" || true
+    rm -f "$_cw_tmp"
+  fi
+}
+
+# ── portable timeout helper (macOS lacks coreutils timeout) ──────────────────
+
+_run_with_timeout() {
+  # Usage: _run_with_timeout <seconds> <command...>
+  # Returns the command's exit code, or 143 (SIGTERM) on timeout.
+  local secs="$1"; shift
+  "$@" &
+  local pid=$!
+  ( sleep "$secs" && kill "$pid" 2>/dev/null ) &
+  local watchdog=$!
+  local rc=0
+  wait "$pid" 2>/dev/null || rc=$?
+  kill "$watchdog" 2>/dev/null || true
+  wait "$watchdog" 2>/dev/null || true
+  return $rc
+}
+
+# ── gh CLI self-serve — single GraphQL call replaces N MCP round-trips ───────
+
+gh_self_serve() {
+  # Fetches all needed PR data via a single GitHub GraphQL call.
+  # Returns 0 and writes JSON to $1 on success; returns 1 if gh unavailable.
+  local out_file="$1"
+
+  # Quick check: is gh usable?
+  _run_with_timeout 5 gh auth status &>/dev/null || return 1
+
+  # Parse what we need from PR_NEEDED_FILE
+  local _gh_pr_nums="" _gh_open_needed="false" _gh_tasks_no_pr=""
+  while IFS= read -r line; do
+    case "$line" in
+      PR_NUM:*)       _gh_pr_nums+="${line#PR_NUM:} " ;;
+      OPEN_PR_LIST:*) _gh_open_needed="true" ;;
+      TASK_NO_PR:*)   _gh_tasks_no_pr+="${line#TASK_NO_PR:} " ;;
+    esac
+  done < "$PR_NEEDED_FILE"
+
+  # Nothing to fetch?
+  [[ -z "$_gh_pr_nums" && "$_gh_open_needed" == "false" && -z "$_gh_tasks_no_pr" ]] && return 1
+
+  # Build and execute a single GraphQL query via Python
+  GH_TOKEN="" python3 - "$owner" "$repo" "$_gh_pr_nums" "$_gh_open_needed" "$_gh_tasks_no_pr" "$out_file" <<'PYEOF' || return 1
+import json, subprocess, sys, os
+
+owner, repo = sys.argv[1], sys.argv[2]
+pr_nums = [n for n in sys.argv[3].split() if n]
+open_needed = sys.argv[4] == "true"
+tasks_no_pr = [n for n in sys.argv[5].split() if n]
+out_path = sys.argv[6]
+
+# Build GraphQL query — everything in one request
+repo_parts = []
+for n in pr_nums:
+    repo_parts.append(
+        f'pr{n}: pullRequest(number: {n}) '
+        '{ number state mergedAt closedAt updatedAt headRefName url }'
+    )
+if open_needed:
+    repo_parts.append(
+        'pullRequests(first: 30, states: OPEN, '
+        'orderBy: {field: UPDATED_AT, direction: DESC}) '
+        '{ nodes { number title state mergedAt closedAt updatedAt headRefName url } }'
+    )
+
+parts = []
+if repo_parts:
+    parts.append(f'repository(owner: "{owner}", name: "{repo}") {{ {" ".join(repo_parts)} }}')
+
+for n in tasks_no_pr:
+    q = f"repo:{owner}/{repo} is:pr TASK-{n} in:title"
+    parts.append(
+        f'task{n}: search(query: "{q}", type: ISSUE, first: 5) '
+        '{ nodes { ... on PullRequest '
+        '{ number title state mergedAt closedAt updatedAt headRefName url } } }'
+    )
+
+if not parts:
+    sys.exit(1)
+
+query = "{ " + " ".join(parts) + " }"
+
+result = subprocess.run(
+    ["gh", "api", "graphql", "-f", f"query={query}"],
+    capture_output=True, text=True, timeout=15
+)
+if result.returncode != 0:
+    sys.exit(1)
+
+data = json.loads(result.stdout).get("data", {})
+out = {}
+open_prs = []
+
+# Individual PRs
+repo_data = data.get("repository", {})
+for key, val in repo_data.items():
+    if key.startswith("pr") and isinstance(val, dict):
+        num = str(val.get("number", key[2:]))
+        out[num] = {
+            "state": "open" if val.get("state", "").upper() == "OPEN" else "closed",
+            "merged_at": val.get("mergedAt"),
+            "closed_at": val.get("closedAt"),
+            "updated_at": val.get("updatedAt"),
+            "head_ref": val.get("headRefName"),
+            "html_url": val.get("url"),
+        }
+
+# Open PR list
+if "pullRequests" in repo_data:
+    for pr in repo_data["pullRequests"].get("nodes", []):
+        if not pr:
+            continue
+        open_prs.append({
+            "number": pr.get("number"),
+            "title": pr.get("title"),
+            "state": "open" if pr.get("state", "").upper() == "OPEN" else "closed",
+            "merged_at": pr.get("mergedAt"),
+            "closed_at": pr.get("closedAt"),
+            "updated_at": pr.get("updatedAt"),
+            "head_ref": pr.get("headRefName"),
+            "html_url": pr.get("url"),
+        })
+
+# Title searches for unlinked tasks
+for key, val in data.items():
+    if key.startswith("task") and isinstance(val, dict):
+        for node in val.get("nodes", []):
+            if not node:
+                continue
+            title = node.get("title", "")
+            if title.lower().startswith("create "):
+                continue
+            open_prs.append({
+                "number": node.get("number"),
+                "title": title,
+                "state": "open" if node.get("state", "").upper() == "OPEN" else "closed",
+                "merged_at": node.get("mergedAt"),
+                "closed_at": node.get("closedAt"),
+                "updated_at": node.get("updatedAt"),
+                "head_ref": node.get("headRefName"),
+                "html_url": node.get("url"),
+            })
+            break  # first non-"Create" result only
+
+if open_prs:
+    out["open_prs"] = open_prs
+
+json.dump(out, open(out_path, "w"))
+PYEOF
 }
 
 # ── task view with mtime-based cache ─────────────────────────────────────────
@@ -63,9 +204,9 @@ get_task_view() {
   cached=$(cache_read "task_views" "$task_id" 2>/dev/null || echo "")
   if [[ -n "$cached" && -n "$mtime" ]]; then
     local cached_mtime
-    cached_mtime=$(echo "$cached" | python3 -c "import json,sys; print(json.load(sys.stdin).get('mtime',''))" 2>/dev/null || echo "")
+    cached_mtime=$(echo "$cached" | jq -r '.mtime // ""' 2>/dev/null || echo "")
     if [[ "$cached_mtime" == "$mtime" ]]; then
-      echo "$cached" | python3 -c "import json,sys; print(json.load(sys.stdin)['data'])" 2>/dev/null
+      echo "$cached" | jq -r '.data' 2>/dev/null
       return 0
     fi
   fi
@@ -77,11 +218,8 @@ get_task_view() {
   # store in cache
   if [[ -n "$mtime" ]]; then
     local payload
-    payload=$(python3 -c "
-import json, sys
-data = sys.stdin.read()
-print(json.dumps({'data': data, 'mtime': sys.argv[1]}))
-" "$mtime" <<< "$output" 2>/dev/null || echo "")
+    payload=$(jq -n --arg data "$output" --arg mtime "$mtime" \
+      '{"data": $data, "mtime": $mtime}' 2>/dev/null || echo "")
     [[ -n "$payload" ]] && cache_write "task_views" "$task_id" "$payload" 2>/dev/null || true
   fi
 
@@ -285,14 +423,7 @@ EOF
   # tasks with no PR number: branch-name match via open PR list (if available)
   if [[ ${#needs_pr_lookup[@]} -gt 0 ]]; then
     if [[ -n "$PR_DATA_FILE" && -f "$PR_DATA_FILE" ]]; then
-      open_prs_json=$(python3 - "$PR_DATA_FILE" 2>/dev/null <<'EOF' || true
-import json, sys
-d = json.load(open(sys.argv[1]))
-prs = d.get('open_prs')
-if prs:
-    print(json.dumps(prs))
-EOF
-)
+      open_prs_json=$(jq -c '.open_prs // empty' "$PR_DATA_FILE" 2>/dev/null || true)
 
       if [[ -n "$open_prs_json" ]]; then
         _open_prs_file=$(mktemp)
@@ -303,9 +434,14 @@ EOF
 import json, re, sys
 tid_num, path = sys.argv[1], sys.argv[2]
 prs = json.load(open(path))
+create_pat = re.compile(r'(?i)^create\s')
 for pr in prs:
+    title = pr.get('title', '')
+    if create_pat.match(title):
+        continue  # skip task-creation auto-merge PRs
     ref = pr.get('head_ref','') or pr.get('head',{}).get('ref','')
-    if re.search(r'(?i)TASK-' + tid_num + r'([^0-9]|$)', ref):
+    pat = re.compile(r'(?i)TASK-' + tid_num + r'([^0-9]|$)')
+    if pat.search(ref) or pat.search(title):
         print(json.dumps({
             'state': pr.get('state'), 'merged_at': pr.get('merged_at'),
             'closed_at': pr.get('closed_at'), 'updated_at': pr.get('updated_at'),
@@ -316,7 +452,7 @@ PYEOF
 )
 
           if [[ -n "$matched" ]]; then
-            pr_num=$(echo "$matched" | python3 -c "import json,sys; print(json.load(sys.stdin).get('number',''))" 2>/dev/null || echo "")
+            pr_num=$(echo "$matched" | jq -r '.number // ""' 2>/dev/null || echo "")
             if [[ -n "$pr_num" ]]; then
               task_pr_num["$tid"]="$pr_num"
               pr_map["$pr_num"]="$matched"
@@ -328,6 +464,9 @@ PYEOF
       fi
     else
       echo "OPEN_PR_LIST:true" >> "$PR_NEEDED_FILE"
+      for _lookup_tid in "${needs_pr_lookup[@]}"; do
+        echo "TASK_NO_PR:${_lookup_tid#TASK-}" >> "$PR_NEEDED_FILE"
+      done
     fi
   fi
 fi
@@ -343,8 +482,7 @@ for tid in "${active_ids[@]}"; do
 
   pr_num="${task_pr_num[$tid]:-}"
   if [[ -n "$pr_num" && -n "${pr_map[$pr_num]:-}" ]]; then
-    pr_state=$(echo "${pr_map[$pr_num]}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || echo "")
-    pr_head=$(echo "${pr_map[$pr_num]}"  | python3 -c "import json,sys; print(json.load(sys.stdin).get('head_ref',''))" 2>/dev/null || echo "")
+    IFS=$'\t' read -r pr_state pr_head < <(echo "${pr_map[$pr_num]}" | jq -r '[.state // "", .head_ref // ""] | @tsv' 2>/dev/null || printf '\t')
     if [[ "$pr_state" == "open" ]]; then
       task_branch["$tid"]="$pr_head"
     else
@@ -357,17 +495,35 @@ for tid in "${active_ids[@]}"; do
   fi
 done
 
+# ── try gh CLI self-serve before falling back to __MCP_NEEDED__ ──────────────
+
+if [[ -f "$PR_NEEDED_FILE" ]]; then
+  _gh_tmp=$(mktemp)
+  if gh_self_serve "$_gh_tmp"; then
+    # gh succeeded — re-run with the fetched data (cache handles task views)
+    rm -f "$PR_NEEDED_FILE"
+    bash "${BASH_SOURCE[0]}" --pr-data-file "$_gh_tmp"
+    _rc=$?
+    rm -f "$_gh_tmp"
+    exit "$_rc"
+  fi
+  rm -f "$_gh_tmp"
+fi
+
 # ── if first pass and MCP data needed, emit marker and exit ───────────────────
 
 if [[ -f "$PR_NEEDED_FILE" ]]; then
   _pr_lines=$(grep "^PR_NUM:" "$PR_NEEDED_FILE" 2>/dev/null || true)
   pr_nums=$(echo "$_pr_lines" | sed 's/^PR_NUM://' | tr '\n' ',' | sed 's/,$//')
   needs_open=$(grep -c "^OPEN_PR_LIST:" "$PR_NEEDED_FILE" 2>/dev/null || echo 0)
+  _no_pr_lines=$(grep "^TASK_NO_PR:" "$PR_NEEDED_FILE" 2>/dev/null || true)
+  tasks_no_pr=$(echo "$_no_pr_lines" | sed 's/^TASK_NO_PR://' | tr '\n' ',' | sed 's/,$//')
   rm -f "$PR_NEEDED_FILE"
 
   echo "__MCP_NEEDED__"
-  [[ -n "$pr_nums" ]]    && echo "PR_NUMS:$pr_nums"
+  [[ -n "$pr_nums" ]]      && echo "PR_NUMS:$pr_nums"
   [[ "$needs_open" -gt 0 ]] && echo "OPEN_PR_LIST:true"
+  [[ -n "$tasks_no_pr" ]]  && echo "TASKS_NO_PR:$tasks_no_pr"
   echo "OWNER:$owner"
   echo "REPO:$repo"
   exit 0
@@ -382,13 +538,12 @@ for tid in "${active_ids[@]}"; do
   [[ -z "$pr_num" || -z "${pr_map[$pr_num]:-}" ]] && continue
 
   pr_json="${pr_map[$pr_num]}"
-  merged=$(echo "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('merged_at') or '')" 2>/dev/null || echo "")
+  IFS=$'\t' read -r merged updated_at < <(echo "$pr_json" | jq -r '[.merged_at // "", .updated_at // ""] | @tsv' 2>/dev/null || printf '\t')
   if [[ -n "$merged" ]]; then
     # Use PR merge timestamp; convert to local timezone
     task_updated[$tid]=$(TZ=Europe/Berlin date -d "$merged" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$merged")
   else
     # Fall back to updated_at if not merged
-    updated_at=$(echo "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('updated_at') or '')" 2>/dev/null || echo "")
     if [[ -n "$updated_at" ]]; then
       task_updated[$tid]=$(TZ=Europe/Berlin date -d "$updated_at" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$updated_at")
     fi
@@ -432,10 +587,7 @@ for tid in "${sorted_active[@]+"${sorted_active[@]}"}"; do
     pr_activity["$tid"]="—"; continue
   fi
   pr_json="${pr_map[$pr_num]}"
-  state=$(echo    "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || echo "")
-  merged=$(echo   "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('merged_at') or '')" 2>/dev/null || echo "")
-  closed=$(echo   "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('closed_at') or '')" 2>/dev/null || echo "")
-  updated_at=$(echo "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('updated_at') or '')" 2>/dev/null || echo "")
+  IFS=$'\t' read -r state merged closed updated_at < <(echo "$pr_json" | jq -r '[.state // "", .merged_at // "", .closed_at // "", .updated_at // ""] | @tsv' 2>/dev/null || printf '\t\t\t')
 
   if [[ "$state" == "open" ]]; then
     pr_ts_raw["$tid"]="$updated_at"; pr_ts_suffix["$tid"]=""
@@ -495,10 +647,7 @@ EOF
 
     if [[ -n "$d_pr_num" && -n "${pr_map[$d_pr_num]:-}" ]]; then
       pr_json="${pr_map[$d_pr_num]}"
-      d_state=$(echo   "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || echo "")
-      d_merged=$(echo  "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('merged_at') or '')" 2>/dev/null || echo "")
-      d_url=$(echo     "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('html_url',''))" 2>/dev/null || echo "")
-      d_head=$(echo    "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('head_ref',''))" 2>/dev/null || echo "")
+      IFS=$'\t' read -r d_state d_merged d_url d_head < <(echo "$pr_json" | jq -r '[.state // "", .merged_at // "", .html_url // "", .head_ref // ""] | @tsv' 2>/dev/null || printf '\t\t\t')
       if [[ "$d_state" == "open" ]]; then
         d_branch="$d_head"; d_pr_open="[PR-${d_pr_num}](${d_url})"
       else
@@ -518,7 +667,7 @@ for tid in "${sorted_active[@]+"${sorted_active[@]}"}"; do
   [[ "${task_status[$tid],,}" != "ready for review" ]] && continue
   pr_num="${task_pr_num[$tid]:-}"
   [[ -z "$pr_num" || -z "${pr_map[$pr_num]:-}" ]] && continue
-  merged=$(echo "${pr_map[$pr_num]}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('merged_at') or '')" 2>/dev/null || echo "")
+  merged=$(echo "${pr_map[$pr_num]}" | jq -r '.merged_at // ""' 2>/dev/null || echo "")
   [[ -n "$merged" ]] && (( hygiene_count += 1 )) || true
 done
 
@@ -552,8 +701,8 @@ for tid in "${sorted_active[@]+"${sorted_active[@]}"}"; do
 
   if [[ -n "$pr_num" && -n "${pr_map[$pr_num]:-}" ]]; then
     pr_json="${pr_map[$pr_num]}"
-    state=$(echo    "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || echo "")
-    html_url=$(echo "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('html_url',''))" 2>/dev/null || "${task_pr_url[$tid]:-}")
+    IFS=$'\t' read -r state html_url < <(echo "$pr_json" | jq -r '[.state // "", .html_url // ""] | @tsv' 2>/dev/null || printf '\t')
+    [[ -z "$html_url" ]] && html_url="${task_pr_url[$tid]:-}"
     if [[ "$state" == "open" ]]; then
       pr_open="[PR-${pr_num}](${html_url})"
     else
@@ -585,9 +734,7 @@ if [[ ${#rfr_tasks[@]} -gt 0 ]]; then
     title="${task_title[$tid]:-$tid}"
     if [[ -n "$pr_num" && -n "${pr_map[$pr_num]:-}" ]]; then
       pr_json="${pr_map[$pr_num]}"
-      state=$(echo  "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || echo "open")
-      html_url=$(echo "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('html_url',''))" 2>/dev/null || echo "")
-      merged=$(echo  "$pr_json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('merged_at') or '')" 2>/dev/null || echo "")
+      IFS=$'\t' read -r state html_url merged < <(echo "$pr_json" | jq -r '[.state // "open", .html_url // "", .merged_at // ""] | @tsv' 2>/dev/null || printf 'open\t\t')
       label="open"
       [[ -n "$merged" ]] && label="merged"
       [[ "$state" == "closed" && -z "$merged" ]] && label="closed"

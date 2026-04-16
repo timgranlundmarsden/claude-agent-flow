@@ -7,7 +7,7 @@ This project uses Backlog.md MCP for task and project management.
 - Search before creating. Plan before code. **After every `backlog task edit -s "..."` status change, immediately run `git push -u origin $(git rev-parse --abbrev-ref HEAD)`** — the auto-push hook commits reliably but does not reliably push in this environment; explicit push is required for status changes to be visible on GitHub.
 - Status lifecycle: To Do → In Progress → Blocked → Ready for Review → Done.
   - Set In Progress before work; if revisiting a Ready for Review task, set back to In Progress first.
-  - Log progress with `notesAppend` and tick acceptance criteria as you go.
+  - Log progress with `notesAppend` and tick acceptance criteria as you go. 
 
 ---
 
@@ -64,6 +64,18 @@ Key rules:
 - Before executing any slash command, verify `.claude-agent-flow/sync-state.json` exists. If absent, stop and tell the user to run `/install` first.
 - Any new command added to `.claude/commands/` MUST include `**Skills:** agent-flow-init-check` as its first skill directive (except `install.md` and `help.md`, which are bootstrapping/discovery commands).
 
+### Agent Continuation Anti-Pattern — NEVER use `to:` on read-only agents
+
+**Never use `Agent(to: <id>)` to send follow-up requirements to a background agent.** The `to:` continuation spawns a new general-purpose agent that does NOT inherit the tool restrictions of the original agent type. An architect invoked with `to:` will have full write access and will implement code instead of producing a design brief — violating the read-only contract.
+
+**Correct pattern when extra requirements arrive while an agent is running:**
+1. Acknowledge the requirements to the user
+2. Queue them internally — do not act on them yet
+3. Wait for the background agent to complete naturally
+4. Incorporate all requirements into the NEXT agent invocation via a fresh `Agent(subagent_type=...)` call with a complete brief
+
+This applies to all read-only agents: architect, explorer, ideator, researcher. Never send mid-flight additions via `to:`.
+
 ### Pipeline Execution Rule
 
 **Read the command file first.** When running `/build` or `/plan`, read the full command file before starting. It is the authoritative source — follow every step sequentially. Do not run from memory.
@@ -86,6 +98,18 @@ The critic must NEVER be told which loop iteration it is on or how many remain. 
 
 ---
 
+## Technology Stack
+
+This project uses `TECHSTACK.md` at the repo root to declare its technology profile.
+Agents read this file for technology-specific commands (test runner, linter, type checker, etc.),
+project conventions, and architectural patterns instead of assuming a particular stack.
+If TECHSTACK.md is missing, the explorer agent will auto-detect it on first pipeline run.
+See TECHSTACK.md for current values.
+
+All agents: if your brief includes a `## Project Tech Stack (from TECHSTACK.md)` section, treat it as the authoritative guide for technology choices, conventions, test commands, linting tools, and architecture patterns — use it to ensure consistency. If no such section appears in your brief, read `TECHSTACK.md` at the project root yourself before beginning work. Do NOT treat unlisted technologies as violations — the stack reflects current state and evolves as the project grows.
+
+---
+
 ## Honouring User Intent
 
 - **Respect specific wording.** If the user names a specific product, technology, version, or scope, do NOT silently broaden or reinterpret it. If there is any ambiguity, ask first.
@@ -94,6 +118,38 @@ The critic must NEVER be told which loop iteration it is on or how many remain. 
 ## Vendor Skills — Read-Only
 
 Vendor-installed skills (e.g. `brainstorming`, `playwright-cli`, `frontend-design`) **cannot be edited**. Their files are managed by the plugin system. Add guidance to CLAUDE.md, command files, or agent definitions instead.
+
+## Optional Tool Consent
+
+Agent-flow uses a two-file consent pattern for optional tools (e.g., Mergiraf):
+
+| File | Committed? | Scope | Purpose |
+|------|-----------|-------|---------|
+| `.claude-agent-flow/consent-defaults.json` | Yes | Repo-wide | Repo owner's opt-in defaults — read as fallback when local override absent |
+| `.claude-agent-flow/optional-tools.json` | No (gitignored) | Per-machine | Individual developer override — always takes precedence |
+
+**Resolution order (highest priority first):**
+1. `optional-tools.json` — present on this machine
+2. `consent-defaults.json` — committed in the repo
+3. Neither present → TTY prompt (interactive) or skip (no TTY)
+
+**To set repo-wide defaults** (committed, applies in ephemeral/sandbox environments):
+```json
+// .claude-agent-flow/consent-defaults.json
+{"mergiraf": "enabled"}
+```
+
+**To override per-machine** (gitignored, never committed):
+```json
+// .claude-agent-flow/optional-tools.json
+{"mergiraf": "disabled"}
+```
+
+**Use case:** In ephemeral sandbox environments (Claude Code on the web) where `optional-tools.json` is recreated each session and no TTY is available, a committed `consent-defaults.json` allows the repo owner to pre-approve tool installation for all sandbox sessions.
+
+**To reset:** Delete `optional-tools.json` (per-machine reset) or `consent-defaults.json` (repo default reset).
+
+`consent-defaults.json` is excluded from plugin repo sync — it is a per-repo-owner decision and must not propagate to downstream plugin consumers.
 
 ## Mandatory Test Coverage
 
@@ -119,3 +175,17 @@ Read `backlog://workflow/overview` before creating any tasks (mandatory, every s
 
 When the user says "suppress this in the review", read `.claude-agent-flow/docs/external-review-suppression-guide.md` first. Fix the code before adding a suppression.
 See `.claude-agent-flow/docs/sync-workflow-conventions.md` before editing sync workflows.
+
+## Optional Web Search Skill
+
+Set `AGENT_FLOW_WEB_SEARCH_ENABLED=true` (or `1`) in your `.env` to enable grounded web search via `.claude/skills/web-search/web-search.sh`. When enabled, researcher and architect agents prefer it over native `WebSearch`. **Additive only** — when unset or any other value, all agents behave exactly as before.
+
+| Variable | Required | Default |
+|---|---|---|
+| `AGENT_FLOW_WEB_SEARCH_ENABLED` | Yes | — |
+| `AGENT_FLOW_WEB_SEARCH_MODEL` | When enabled | — |
+| `AGENT_FLOW_WEB_SEARCH_BASE_URL` | When enabled | `$ANTHROPIC_BASE_URL` |
+| `AGENT_FLOW_WEB_SEARCH_API_KEY` | When enabled | `$ANTHROPIC_API_KEY` |
+| `AGENT_FLOW_WEB_SEARCH_TOOL_SHAPE` | No | `googleSearch` |
+
+Tool shapes: `googleSearch` (default), `googleSearchRetrieval`, `web_search_options`. Only `true` or `1` enable the skill — values like `yes`, `YES`, `True` are treated as disabled.

@@ -12,7 +12,7 @@ This project uses Backlog.md MCP for task and project management.
 - Search before creating. Plan before code. **After every `backlog task edit -s "..."` status change, immediately run `git push -u origin $(git rev-parse --abbrev-ref HEAD)`** — the auto-push hook commits reliably but does not reliably push in this environment; explicit push is required for status changes to be visible on GitHub.
 - Status lifecycle: To Do → In Progress → Blocked → Ready for Review → Done.
   - Set In Progress before work; if revisiting a Ready for Review task, set back to In Progress first.
-  - Log progress with `notesAppend` and tick acceptance criteria as you go.
+  - Log progress with `notesAppend` and tick acceptance criteria as you go. 
 
 ---
 
@@ -71,6 +71,18 @@ Key rules:
 - Before executing any slash command, verify `.claude-agent-flow/sync-state.json` exists. If absent, stop and tell the user to run `/install` first.
 - Any new command added to `.claude/commands/` MUST include `**Skills:** agent-flow-init-check` as its first skill directive (except `install.md` and `help.md`, which are bootstrapping/discovery commands).
 
+### Agent Continuation Anti-Pattern — NEVER use `to:` on read-only agents
+
+**Never use `Agent(to: <id>)` to send follow-up requirements to a background agent.** The `to:` continuation spawns a new general-purpose agent that does NOT inherit the tool restrictions of the original agent type. An architect invoked with `to:` will have full write access and will implement code instead of producing a design brief — violating the read-only contract.
+
+**Correct pattern when extra requirements arrive while an agent is running:**
+1. Acknowledge the requirements to the user
+2. Queue them internally — do not act on them yet
+3. Wait for the background agent to complete naturally
+4. Incorporate all requirements into the NEXT agent invocation via a fresh `Agent(subagent_type=...)` call with a complete brief
+
+This applies to all read-only agents: architect, explorer, ideator, researcher. Never send mid-flight additions via `to:`.
+
 ### Pipeline Execution Rule
 
 **Read the command file first.** When running `/build` or `/plan`, read the full command file before starting. It is the authoritative source — follow every step sequentially. Do not run from memory.
@@ -122,3 +134,16 @@ Read `backlog://workflow/overview` before creating any tasks (mandatory, every s
 
 When the user says "suppress this in the review", read `.claude-agent-flow/docs/external-review-suppression-guide.md` first. Fix the code before adding a suppression.
 See `.claude-agent-flow/docs/sync-workflow-conventions.md` before editing sync workflows.
+
+## Technology Stack
+
+This project uses `TECHSTACK.md` at the repo root to declare its technology profile.
+Agents read this file for technology-specific commands (test runner, linter, type checker, etc.),
+project conventions, and architectural patterns instead of assuming a particular stack.
+If TECHSTACK.md is missing, the explorer agent will auto-detect it on first pipeline run.
+See TECHSTACK.md for current values.
+
+All agents: if your brief includes a `## Project Tech Stack (from TECHSTACK.md)` section, treat it as the authoritative guide for technology choices, conventions, test commands, linting tools, and architecture patterns — use it to ensure consistency. If no such section appears in your brief, read `TECHSTACK.md` at the project root yourself before beginning work. Do NOT treat unlisted technologies as violations — the stack reflects current state and evolves as the project grows.
+
+---
+
