@@ -64,7 +64,7 @@ gh_self_serve() {
   local out_file="$1"
 
   # Quick check: is gh usable?
-  GH_TOKEN="" _run_with_timeout 5 gh auth status &>/dev/null || return 1
+  _run_with_timeout 5 gh auth status &>/dev/null || return 1
 
   # Parse what we need from PR_NEEDED_FILE
   local _gh_pr_nums="" _gh_open_needed="false" _gh_tasks_no_pr=""
@@ -120,11 +120,9 @@ if not parts:
 
 query = "{ " + " ".join(parts) + " }"
 
-env = dict(os.environ)
-env['GH_TOKEN'] = ''
 result = subprocess.run(
     ["gh", "api", "graphql", "-f", f"query={query}"],
-    capture_output=True, text=True, timeout=15, env=env
+    capture_output=True, text=True, timeout=15
 )
 if result.returncode != 0:
     sys.exit(1)
