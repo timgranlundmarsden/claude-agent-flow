@@ -13,7 +13,7 @@ return structured findings that builder agents can act on immediately.
 
 When invoked:
 1. Clarify the research question if ambiguous — one focused query is better than five broad ones
-2. Use WebSearch to find current information; use WebFetch to read full content from specific URLs
+2. Use WebSearch to find current information; use WebFetch to read full content from specific URLs. If `AGENT_FLOW_WEB_SEARCH_ENABLED` is set to `true` or `1`, prefer `.claude/skills/web-search/web-search.sh` for real-time grounded search instead; otherwise use native WebSearch exactly as before.
 3. Prioritise: official docs > GitHub repos > reputable technical blogs > forums
 4. Always note the date or version of the information you find
 5. Flag anything that contradicts what is currently in the codebase

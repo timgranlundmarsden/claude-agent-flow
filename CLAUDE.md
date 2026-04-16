@@ -134,6 +134,7 @@ Read `backlog://workflow/overview` before creating any tasks (mandatory, every s
 
 When the user says "suppress this in the review", read `.claude-agent-flow/docs/external-review-suppression-guide.md` first. Fix the code before adding a suppression.
 See `.claude-agent-flow/docs/sync-workflow-conventions.md` before editing sync workflows.
+
 ## Technology Stack
 
 This project uses `TECHSTACK.md` at the repo root to declare its technology profile.

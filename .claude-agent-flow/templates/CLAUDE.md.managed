@@ -119,6 +119,38 @@ All agents: if your brief includes a `## Project Tech Stack (from TECHSTACK.md)`
 
 Vendor-installed skills (e.g. `brainstorming`, `playwright-cli`, `frontend-design`) **cannot be edited**. Their files are managed by the plugin system. Add guidance to CLAUDE.md, command files, or agent definitions instead.
 
+## Optional Tool Consent
+
+Agent-flow uses a two-file consent pattern for optional tools (e.g., Mergiraf):
+
+| File | Committed? | Scope | Purpose |
+|------|-----------|-------|---------|
+| `.claude-agent-flow/consent-defaults.json` | Yes | Repo-wide | Repo owner's opt-in defaults — read as fallback when local override absent |
+| `.claude-agent-flow/optional-tools.json` | No (gitignored) | Per-machine | Individual developer override — always takes precedence |
+
+**Resolution order (highest priority first):**
+1. `optional-tools.json` — present on this machine
+2. `consent-defaults.json` — committed in the repo
+3. Neither present → TTY prompt (interactive) or skip (no TTY)
+
+**To set repo-wide defaults** (committed, applies in ephemeral/sandbox environments):
+```json
+// .claude-agent-flow/consent-defaults.json
+{"mergiraf": "enabled"}
+```
+
+**To override per-machine** (gitignored, never committed):
+```json
+// .claude-agent-flow/optional-tools.json
+{"mergiraf": "disabled"}
+```
+
+**Use case:** In ephemeral sandbox environments (Claude Code on the web) where `optional-tools.json` is recreated each session and no TTY is available, a committed `consent-defaults.json` allows the repo owner to pre-approve tool installation for all sandbox sessions.
+
+**To reset:** Delete `optional-tools.json` (per-machine reset) or `consent-defaults.json` (repo default reset).
+
+`consent-defaults.json` is excluded from plugin repo sync — it is a per-repo-owner decision and must not propagate to downstream plugin consumers.
+
 ## Mandatory Test Coverage
 
 All code changes require tests (happy path, edge cases, error states, boundary conditions). Enforced by builders, critic, tester, and reviewer at every stage. No exceptions. Tester must always run the **full** test suite — never scoped to changed files only — to catch regressions.
@@ -143,3 +175,17 @@ Read `backlog://workflow/overview` before creating any tasks (mandatory, every s
 
 When the user says "suppress this in the review", read `.claude-agent-flow/docs/external-review-suppression-guide.md` first. Fix the code before adding a suppression.
 See `.claude-agent-flow/docs/sync-workflow-conventions.md` before editing sync workflows.
+
+## Optional Web Search Skill
+
+Set `AGENT_FLOW_WEB_SEARCH_ENABLED=true` (or `1`) in your `.env` to enable grounded web search via `.claude/skills/web-search/web-search.sh`. When enabled, researcher and architect agents prefer it over native `WebSearch`. **Additive only** — when unset or any other value, all agents behave exactly as before.
+
+| Variable | Required | Default |
+|---|---|---|
+| `AGENT_FLOW_WEB_SEARCH_ENABLED` | Yes | — |
+| `AGENT_FLOW_WEB_SEARCH_MODEL` | When enabled | — |
+| `AGENT_FLOW_WEB_SEARCH_BASE_URL` | When enabled | `$ANTHROPIC_BASE_URL` |
+| `AGENT_FLOW_WEB_SEARCH_API_KEY` | When enabled | `$ANTHROPIC_API_KEY` |
+| `AGENT_FLOW_WEB_SEARCH_TOOL_SHAPE` | No | `googleSearch` |
+
+Tool shapes: `googleSearch` (default), `googleSearchRetrieval`, `web_search_options`. Only `true` or `1` enable the skill — values like `yes`, `YES`, `True` are treated as disabled.
