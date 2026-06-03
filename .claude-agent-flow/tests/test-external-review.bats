@@ -10,20 +10,25 @@ SCRIPT="$PROJECT_ROOT/.claude/skills/external-code-review/external-review.sh"
 # Helpers
 # ---------------------------------------------------------------------------
 
+setup_file() {
+  # Pre-build a template test directory with shared static fixtures.
+  # Each test clones this via cp -a rather than writing files from scratch.
+  local tpl="$BATS_FILE_TMPDIR/test-template"
+  mkdir -p "$tpl/stubs"
+  printf -- '--- a/foo.py\n+++ b/foo.py\n@@ -1,3 +1,4 @@\n def bar():\n-    pass\n+    return 1\n' > "$tpl/test.diff"
+  printf 'You are a code reviewer.\n' > "$tpl/system-prompt.md"
+}
+
 setup() {
   # Save original PATH so teardown can restore it
   export ORIG_PATH="$PATH"
 
-  # Create a fresh temp directory for each test
-  TEST_TMP=$(mktemp -d)
+  # Clone pre-built template (one cp -a instead of mktemp + 2 file writes)
+  TEST_TMP="$BATS_TEST_TMPDIR/test-run"
+  cp -a "$BATS_FILE_TMPDIR/test-template/." "$TEST_TMP/"
 
-  # A minimal diff file
   DIFF_FILE="$TEST_TMP/test.diff"
-  printf -- '--- a/foo.py\n+++ b/foo.py\n@@ -1,3 +1,4 @@\n def bar():\n-    pass\n+    return 1\n' > "$DIFF_FILE"
-
-  # A minimal system prompt file
   SYSTEM_PROMPT="$TEST_TMP/system-prompt.md"
-  printf 'You are a code reviewer.\n' > "$SYSTEM_PROMPT"
 
   # Prevent .env auto-load: the script uses git rev-parse --show-toplevel to find
   # .env, which would re-set env vars that tests intentionally unset. Running

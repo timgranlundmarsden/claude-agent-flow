@@ -34,8 +34,16 @@ def fmt_tokens(n: int) -> str:
     return str(n)
 
 
-def fmt_cost(v: float) -> str:
-    return f"{v:.2f}"
+def fmt_tokens_field(row: dict, key: str) -> str:
+    if key in row.get("unsupported", []):
+        return "unavailable"
+    return fmt_tokens(row.get(key, 0))
+
+
+def fmt_cost(v: float | None) -> str:
+    if v is None:
+        return "?"
+    return f"{v:.2f} USD"
 
 
 def health_icon(health: str) -> str:
@@ -49,8 +57,8 @@ def session_health_icon(session_id_8: str, top_issues: list) -> str:
     return "✅"
 
 
-def bar(cost: float, max_cost: float, width: int = 20) -> str:
-    if max_cost <= 0:
+def bar(cost: float | None, max_cost: float, width: int = 20) -> str:
+    if cost is None or max_cost <= 0:
         return ""
     filled = round((cost / max_cost) * width)
     return "█" * filled
@@ -90,7 +98,7 @@ def generate_narrative(session: dict) -> str:
     calls = session.get("api_calls", 0)
     sa_calls = session.get("subagent_calls", 0)
     duration = session.get("duration_min", 0)
-    cost = session.get("est_cost_usd", 0.0)
+    cost = session.get("est_cost_usd")
 
     if sa_calls >= 20 and ratio >= 30:
         pattern = "subagent runaway"
@@ -104,7 +112,7 @@ def generate_narrative(session: dict) -> str:
             f"Claude re-read a large accumulated context on every one of the {calls} calls. "
             "Starting a fresh session per sub-task would cut this by ~80%."
         )
-    elif duration <= 5 and cost >= 0.5:
+    elif duration <= 5 and (cost or 0) >= 0.5:
         pattern = "large pre-loaded context"
         detail = "Most cost came from a large context loaded upfront, not work done in the session."
     else:
@@ -231,11 +239,11 @@ def render_call_breakdown(per_call: list[dict]) -> str:
         "|---|--------|-------------|------------|---------|--------|------|",
     ]
     for i, c in enumerate(per_call, 1):
-        raw_in    = fmt_tokens(c.get("input", 0))
-        cw        = fmt_tokens(c.get("cache_write", 0))
-        cr        = fmt_tokens(c.get("cache_read", 0))
-        ctx       = fmt_tokens(c.get("context_size", 0))
-        out       = fmt_tokens(c.get("output", 0))
+        raw_in    = fmt_tokens_field(c, "input")
+        cw        = fmt_tokens_field(c, "cache_write")
+        cr        = fmt_tokens_field(c, "cache_read")
+        ctx       = fmt_tokens_field(c, "context_size")
+        out       = fmt_tokens_field(c, "output")
         note = ""
         if i - 1 == max_cw_idx and max_cw > 1000:
             note = "← largest cache write"
@@ -256,13 +264,13 @@ def render_model_breakdown(session: dict) -> str:
         return "_No model stats available._\n"
 
     primary = session.get("model", "")
-    total_cost = session.get("est_cost_usd", 0.0)
+    total_cost = session.get("est_cost_usd")
 
     # Compute cost per model
     rows = []
     for m, ms in sorted(model_stats.items(), key=lambda x: x[1]["calls"], reverse=True):
         cost = calc_cost_for_model(m, ms["input"], ms["output"], ms["cache_read"], ms["cache_write"])
-        pct = round(cost / total_cost * 100) if total_cost > 0 else 0
+        pct = round(cost / total_cost * 100) if (total_cost and cost is not None) else 0
         rows.append({
             "model": short_model(m),
             "calls": ms["calls"],
@@ -303,18 +311,32 @@ def render_model_breakdown(session: dict) -> str:
     return "\n".join(lines)
 
 
+def _normalize_model_key(model: str) -> str:
+    """Convert Claude API model ID to pricing dict key (mirrors parse-logs.py)."""
+    import re
+    codex_variant = re.match(r"^(gpt-\d+(?:\.\d+)?-codex)-\d+s-\d+p-.+$", model)
+    if codex_variant:
+        return codex_variant.group(1)
+    if not model.startswith("claude-"):
+        return model
+    key = re.sub(r"-\d{8}$", "", model)
+    return "anthropic_" + key.replace("-", "_")
+
+
 def calc_cost_for_model(model_id: str, input_tok: int, output_tok: int,
-                        cache_read: int, cache_write: int) -> float:
-    """Thin wrapper used by render_model_breakdown (parse-logs not importable here)."""
-    from importlib.util import spec_from_file_location, module_from_spec
-    # Reuse calc_cost from parse-logs by delegating through the already-parsed JSON
-    # We just need pricing — replicate the calc_cost formula here for simplicity.
+                        cache_read: int, cache_write: int) -> float | None:
+    """Thin wrapper used by render_model_breakdown (parse-logs not importable here).
+
+    Returns None when the model is not in model-pricing.json.
+    """
     _pricing_file = _SKILL_DIR / "reference" / "model-pricing.json"
     try:
         with open(_pricing_file) as f:
             pricing_data = json.load(f)
         pricing = pricing_data["models"]
-        p = pricing.get(model_id) or pricing.get("anthropic_claude_sonnet_4_6")
+        p = pricing.get(_normalize_model_key(model_id))
+        if p is None:
+            return None
         rate_in = p["in"] / 1_000_000
         rate_out = p["out"] / 1_000_000
         rate_cr = (p.get("cache_read") or 0) / 1_000_000
@@ -322,7 +344,7 @@ def calc_cost_for_model(model_id: str, input_tok: int, output_tok: int,
         return (input_tok * rate_in + output_tok * rate_out
                 + cache_read * rate_cr + cache_write * rate_cw)
     except Exception:
-        return 0.0
+        return None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -354,7 +376,10 @@ def render_single_session(data: dict, breakdown: bool = False, models: bool = Fa
     input_tok = fmt_tokens(session.get("input_tokens", 0))
     output_tok = fmt_tokens(session.get("output_tokens", 0))
     cache_tok = fmt_tokens(session.get("cache_read_tokens", 0))
-    cost = fmt_cost(session.get("est_cost_usd", 0.0))
+    telemetry_notes = session.get("telemetry_notes") or data.get("telemetry_notes") or []
+    if "cache_read_tokens" in session.get("unsupported_fields", []):
+        cache_tok = "unavailable"
+    cost = fmt_cost(session.get("est_cost_usd"))
 
     lines += [
         "| | |",
@@ -368,22 +393,28 @@ def render_single_session(data: dict, breakdown: bool = False, models: bool = Fa
         "",
     ]
 
+    if telemetry_notes:
+        lines += ["**TELEMETRY NOTES**", ""]
+        for note in telemetry_notes:
+            lines.append(f"- {note}")
+        lines.append("")
+
     # Cost breakdown
     cost_blocks = session.get("cost_blocks", [])
     if cost_blocks:
-        max_cost = max(b.get("cost", 0) for b in cost_blocks) or 1
+        max_cost = max((b.get("cost") or 0) for b in cost_blocks) or 1
         lines += [
             "**COST BREAKDOWN**",
             "",
             "| Calls | Tokens in | Cost | Bar |",
             "|---|---|---|---|",
         ]
-        for b in sorted(cost_blocks, key=lambda x: x.get("cost", 0), reverse=True):
+        for b in sorted(cost_blocks, key=lambda x: x.get("cost") or 0, reverse=True):
             label = b.get("label", "")
             calls_n = b.get("calls", 0)
             tok_in = fmt_tokens(b.get("input", 0))
-            b_cost = fmt_cost(b.get("cost", 0))
-            b_bar = bar(b.get("cost", 0), max_cost)
+            b_cost = fmt_cost(b.get("cost"))
+            b_bar = bar(b.get("cost"), max_cost)
             # Subagent labels already include call count; only append for main session blocks
             if b.get("is_subagent"):
                 display_label = label
@@ -413,6 +444,9 @@ def render_single_session(data: dict, breakdown: bool = False, models: bool = Fa
                 desc = f"Context jumped {pct}% at call {at}"
             elif itype == "no_cache":
                 desc = "No prompt cache hits"
+            elif itype == "unknown_model":
+                m = issue.get("model", "?")
+                desc = f"Unknown model `{m}` — cost unknown. Add it to model-pricing.json"
             else:
                 desc = itype
             lines.append(f"{i}. {icon} **[{sev_label}]** {desc}")
@@ -439,7 +473,7 @@ def render_single_session(data: dict, breakdown: bool = False, models: bool = Fa
         ]
         for s in savings[:4]:
             m = s.get("model", "")
-            ec = fmt_cost(s.get("est_cost", 0))
+            ec = fmt_cost(s.get("est_cost"))
             sv = s.get("saving_pct", 0)
             note = s.get("note", "")
             lines.append(f"| {m} | {ec} | -{sv}% | {note} |")
@@ -484,13 +518,13 @@ def render_multi_session(data: dict) -> str:
         api = s.get("api_calls", 0)
         sa = s.get("subagent_calls", 0)
         calls_str = f"{api}+{sa}"
-        cost = fmt_cost(s.get("est_cost_usd", 0.0))
+        cost = fmt_cost(s.get("est_cost_usd"))
         ratio = s.get("ratio", 0)
         h = session_health_icon(sid, top_issues)
         model = short_model(s.get("model", ""))
         rec = s.get("recommendation", {})
         alt = rec.get("model", "")
-        alt_cost = fmt_cost(rec.get("est_cost", 0.0))
+        alt_cost = fmt_cost(rec.get("est_cost"))
         save = f"-{rec.get('saving_pct', 0)}%"
         reason = truncate_reason(rec.get("reason", ""))
         lines.append(
@@ -503,8 +537,8 @@ def render_multi_session(data: dict) -> str:
     t_in = fmt_tokens(totals.get("input_tokens", 0))
     t_out = fmt_tokens(totals.get("output_tokens", 0))
     t_calls = totals.get("api_calls", 0)
-    t_cost = fmt_cost(totals.get("est_cost_usd", 0.0))
-    t_alt = fmt_cost(totals.get("alt_cost_usd", 0.0))
+    t_cost = fmt_cost(totals.get("est_cost_usd"))
+    t_alt = fmt_cost(totals.get("alt_cost_usd"))
     lines.append(
         f"| **Total** | | {t_dur} | **{t_in}/{t_out}** | **{t_calls}** | "
         f"**{t_cost}** | | | | | **{t_alt}** | | |"
@@ -513,7 +547,7 @@ def render_multi_session(data: dict) -> str:
 
     # Worst session narrative
     if sessions:
-        worst = max(sessions, key=lambda s: s.get("est_cost_usd", 0))
+        worst = max(sessions, key=lambda s: s.get("est_cost_usd") or 0)
         lines += [generate_narrative(worst), ""]
 
     # Issues
@@ -562,7 +596,7 @@ def render_full_report(data: dict) -> str:
         f"**Period:** {period}  ",
         f"**Mode:** {mode}  ",
         f"**Health:** {health_icon(health)}  ",
-        f"**Total cost:** {fmt_cost(totals.get('est_cost_usd', 0))}  ",
+        f"**Total cost:** {fmt_cost(totals.get('est_cost_usd'))}  ",
         f"**Total calls:** {totals.get('api_calls', 0)}  ",
         f"**Duration:** {totals.get('duration_min', 0)}m",
         "",
@@ -587,7 +621,7 @@ def render_full_report(data: dict) -> str:
         ]
         for s in savings:
             lines.append(
-                f"| {s.get('model','')} | {fmt_cost(s.get('est_cost',0))} "
+                f"| {s.get('model','')} | {fmt_cost(s.get('est_cost'))} "
                 f"| -{s.get('saving_pct',0)}% | {s.get('note','')} |"
             )
 

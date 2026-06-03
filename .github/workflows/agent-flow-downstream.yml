@@ -26,8 +26,56 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Gate — sync-relevant paths changed?
+        id: gate
+        if: github.event_name == 'push'
+        env:
+          GATE_BEFORE: ${{ github.event.before }}
+          GATE_SHA: ${{ github.sha }}
+        run: |
+          source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
+
+          MANAGED_PATHS=$(list_managed_paths --include-merge 2>/dev/null || true)
+          if [[ -z "$MANAGED_PATHS" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Gate: manifest empty — proceeding."
+            exit 0
+          fi
+
+          BEFORE="$GATE_BEFORE"
+          SHA="$GATE_SHA"
+          ZERO_SHA="0000000000000000000000000000000000000000"
+
+          if [[ -z "$BEFORE" || "$BEFORE" == "$ZERO_SHA" ]]; then
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)
+          else
+            CHANGED=$(git diff --name-only "$BEFORE" "$SHA" 2>/dev/null || true)
+            if [[ -z "$CHANGED" ]]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)
+            fi
+          fi
+
+          if [[ -z "$CHANGED" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Gate: empty diff — proceeding (no path filtering applied)."
+            exit 0
+          fi
+
+          if echo "$CHANGED" | grep -Fxq -f <(echo "$MANAGED_PATHS"); then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Gate: push touches sync-relevant paths — proceeding."
+            echo "Matching paths:"
+            echo "$CHANGED" | grep -Fxf <(echo "$MANAGED_PATHS") | head -20
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Gate: push touches no sync-relevant paths — skipping sync."
+            echo "Changed files (first 20):"
+            echo "$CHANGED" | head -20
+          fi
+
       - name: Check source repo identity
         id: source-check
+        if: steps.gate.outputs.skip != 'true'
         run: |
           # Downstream sync should only run in the source repo.
           # Target repos receive this workflow via sync but must not execute it.
@@ -36,7 +84,7 @@ jobs:
 
       - name: Validate secrets
         id: secrets-validate
-        if: steps.source-check.outputs.skip == 'false'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false'
         env:
           AGENT_FLOW_SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
           N8N_SYNC_WEBHOOK_URL: ${{ secrets.N8N_SYNC_WEBHOOK_URL }}
@@ -49,13 +97,13 @@ jobs:
             "Downstream Sync"
 
       - name: Install dependencies
-        if: steps.source-check.outputs.skip == 'false'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq jq
           pip install pyyaml
 
       - name: Detect managed file changes
-        if: steps.source-check.outputs.skip == 'false'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false'
         id: changes
         run: |
           source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
@@ -88,7 +136,7 @@ jobs:
           fi
 
       - name: Check for sync loop and extract origin
-        if: steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true'
         id: loop-check
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -97,7 +145,7 @@ jobs:
           check_sync_loop >> "$GITHUB_OUTPUT"
 
       - name: Read targets from manifest
-        if: steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false'
         id: targets
         run: |
           source .claude-agent-flow/scripts/agent-flow-workflow-helpers.sh
@@ -114,14 +162,14 @@ jobs:
           fi
 
       - name: Get manifest version
-        if: steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false'
         id: version
         run: |
           VERSION=$(grep '^version:' .claude-agent-flow/repo-sync-manifest.yml | awk '{print $2}')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Sync to each target
-        if: steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false' && steps.targets.outputs.has_targets == 'true'
+        if: steps.gate.outputs.skip != 'true' && steps.source-check.outputs.skip == 'false' && steps.changes.outputs.has_changes == 'true' && steps.loop-check.outputs.skip == 'false' && steps.targets.outputs.has_targets == 'true'
         env:
           SYNC_TOKEN: ${{ secrets.AGENT_FLOW_SYNC_TOKEN }}
           ORIGIN_REPO: ${{ steps.loop-check.outputs.origin_repo }}

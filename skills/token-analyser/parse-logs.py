@@ -8,9 +8,14 @@ No LLM involved.
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+from adapters.claude import ClaudeUsageAdapter
+from adapters.codex import CodexUsageAdapter
+from runtime import select_runtime
 
 # Local timezone for display (uses system timezone, e.g. CET/CEST automatically)
 LOCAL_TZ = datetime.now().astimezone().tzinfo
@@ -26,6 +31,23 @@ PRICING = _PRICING_DATA["models"]
 ALTERNATIVES = _PRICING_DATA["alternatives"]
 
 CALL_BLOCK_SIZE = 10  # group main-session calls into blocks of this size
+
+
+def normalize_model_key(model: str) -> str:
+    """Convert Claude API model ID to pricing dict key.
+
+    e.g. claude-opus-4-7 → anthropic_claude_opus_4_7
+         claude-haiku-4-5-20251001 → anthropic_claude_haiku_4_5
+         gpt-5.3-codex-2s-1p-codexswic-ev3 → gpt-5.3-codex
+    Other non-Claude models (GPT, Gemini) are returned unchanged.
+    """
+    codex_variant = re.match(r"^(gpt-\d+(?:\.\d+)?-codex)-\d+s-\d+p-.+$", model)
+    if codex_variant:
+        return codex_variant.group(1)
+    if not model.startswith("claude-"):
+        return model
+    key = re.sub(r"-\d{8}$", "", model)
+    return "anthropic_" + key.replace("-", "_")
 
 
 def encode_project_path(path: str) -> str:
@@ -112,9 +134,20 @@ def get_session_files(project_dir: Path, mode: str, session_id: str | None) -> l
     return []
 
 
-def calc_cost(model: str, input_tok: int, output_tok: int, cache_read_tok: int, cache_write_tok: int) -> float:
-    """Calculate estimated cost in USD given token counts."""
-    pricing = PRICING.get(model) or PRICING.get("anthropic_claude_sonnet_4_6")
+def calc_cost(model: str, input_tok: int, output_tok: int, cache_read_tok: int, cache_write_tok: int) -> float | None:
+    """Calculate estimated cost in USD given token counts.
+
+    Returns None when the model is not in model-pricing.json — callers must handle None
+    explicitly rather than assuming a fallback cost.
+    """
+    pricing = PRICING.get(normalize_model_key(model))
+    if pricing is None:
+        print(
+            f"WARNING: no pricing found for model '{model}' — cost unknown. "
+            "Add it to model-pricing.json.",
+            file=sys.stderr,
+        )
+        return None
     rate_in = pricing["in"] / 1_000_000
     rate_out = pricing["out"] / 1_000_000
     rate_cache_read = (pricing.get("cache_read") or 0) / 1_000_000
@@ -128,14 +161,18 @@ def calc_cost(model: str, input_tok: int, output_tok: int, cache_read_tok: int, 
     )
 
 
-def savings_comparison(model: str, input_tok: int, output_tok: int, cache_read_tok: int, cache_write_tok: int, current_cost: float) -> list[dict]:
+def savings_comparison(model: str, input_tok: int, output_tok: int, cache_read_tok: int, cache_write_tok: int, current_cost: float | None) -> list[dict]:
     """Compute cost if cheaper alternative models had been used."""
+    if current_cost is None:
+        return []
     results = []
     for alt in ALTERNATIVES:
         alt_model = alt["id"]
         if alt_model == model:
             continue
         est = calc_cost(alt_model, input_tok, output_tok, cache_read_tok, cache_write_tok)
+        if est is None:
+            continue
         saving_pct = round((1 - est / current_cost) * 100) if current_cost > 0 else 0
         results.append({
             "model": alt["label"],
@@ -187,16 +224,16 @@ _SESSION_TYPE_REASON = {
 def recommend_for_session(session_type: str, model: str,
                           input_tok: int, output_tok: int,
                           cache_read_tok: int, cache_write_tok: int,
-                          actual_cost: float) -> dict:
+                          actual_cost: float | None) -> dict:
     alt_model_id = _SESSION_TYPE_MODEL[session_type]
     alt_label = _SESSION_TYPE_LABEL[session_type]
     est = calc_cost(alt_model_id, input_tok, output_tok, cache_read_tok, cache_write_tok)
-    saving_pct = round((1 - est / actual_cost) * 100) if actual_cost > 0 else 0
+    saving_pct = round((1 - est / actual_cost) * 100) if (actual_cost and est is not None) else 0
     return {
         "model": alt_label,
         "model_id": alt_model_id,
         "session_type": session_type,
-        "est_cost": round(est, 2),
+        "est_cost": round(est, 2) if est is not None else None,
         "saving_pct": saving_pct,
         "reason": _SESSION_TYPE_REASON[session_type],
     }
@@ -293,25 +330,25 @@ def parse_session_file(jsonl_path: Path, project_dir: Path) -> dict:
                         label = f"{label} ({desc[:40]})" if desc else label
                     except Exception:
                         pass
-                sa_cost = calc_cost(sa_model or model or "anthropic_claude_sonnet_4_6",
-                                    sa_in, sa_out, sa_cache_read, sa_cache_write)
+                sa_m = sa_model or model
+                sa_cost = calc_cost(sa_m, sa_in, sa_out, sa_cache_read, sa_cache_write) if sa_m else None
                 # Accumulate subagent model into model_stats
-                sa_m = sa_model or model or "anthropic_claude_sonnet_4_6"
-                if sa_m not in model_stats:
-                    model_stats[sa_m] = {"calls": 0, "input": 0, "output": 0,
-                                         "cache_read": 0, "cache_write": 0}
-                model_stats[sa_m]["calls"] += sa_calls
-                model_stats[sa_m]["input"] += sa_in
-                model_stats[sa_m]["output"] += sa_out
-                model_stats[sa_m]["cache_read"] += sa_cache_read
-                model_stats[sa_m]["cache_write"] += sa_cache_write
+                if sa_m:
+                    if sa_m not in model_stats:
+                        model_stats[sa_m] = {"calls": 0, "input": 0, "output": 0,
+                                             "cache_read": 0, "cache_write": 0}
+                    model_stats[sa_m]["calls"] += sa_calls
+                    model_stats[sa_m]["input"] += sa_in
+                    model_stats[sa_m]["output"] += sa_out
+                    model_stats[sa_m]["cache_read"] += sa_cache_read
+                    model_stats[sa_m]["cache_write"] += sa_cache_write
                 subagent_blocks.append({
                     "label": f"subagent {sa_file.stem[-8:]} ({sa_calls}c)",
                     "calls": sa_calls,
                     "input": sa_in + sa_cache_write,
                     "cache_read": sa_cache_read,
                     "output": sa_out,
-                    "cost": round(sa_cost, 4),
+                    "cost": round(sa_cost, 4) if sa_cost is not None else None,
                     "model": sa_m,
                     "agent_type": agent_type,
                     "is_subagent": True,
@@ -326,8 +363,22 @@ def parse_session_file(jsonl_path: Path, project_dir: Path) -> dict:
     model = model or "anthropic_claude_sonnet_4_6"
 
     main_cost = calc_cost(model, total_in, total_out, total_cache_read, total_cache_write)
-    subagent_total_cost = sum(b["cost"] for b in subagent_blocks)
-    total_cost = main_cost + subagent_total_cost
+
+    # Collect models whose pricing is missing so the issue system can surface them
+    unknown_cost_models: list[str] = []
+    if main_cost is None:
+        unknown_cost_models.append(model)
+    for b in subagent_blocks:
+        if b["cost"] is None and b.get("model"):
+            m = b["model"]
+            if m not in unknown_cost_models:
+                unknown_cost_models.append(m)
+
+    all_costs = [main_cost] + [b["cost"] for b in subagent_blocks]
+    if any(c is None for c in all_costs):
+        total_cost = None
+    else:
+        total_cost = sum(all_costs)  # type: ignore[arg-type]
 
     # Cost blocks for main session
     cost_blocks = _make_cost_blocks(calls, model)
@@ -379,7 +430,8 @@ def parse_session_file(jsonl_path: Path, project_dir: Path) -> dict:
         "cache_read_tokens": total_cache_read,
         "output_tokens": total_out,
         "ratio": ratio,
-        "est_cost_usd": round(total_cost, 4),
+        "est_cost_usd": round(total_cost, 4) if total_cost is not None else None,
+        "unknown_cost_models": unknown_cost_models,
         "recommendation": recommendation,
         "is_subagent": False,
         "cost_blocks": cost_blocks,
@@ -440,7 +492,7 @@ def _make_cost_blocks(calls: list[dict], model: str) -> list[dict]:
             "input": in_tok + cache_write,
             "cache_read": cache_read,
             "output": out_tok,
-            "cost": round(cost, 4),
+            "cost": round(cost, 4) if cost is not None else None,
             "is_subagent": False,
         })
     return blocks
@@ -517,6 +569,14 @@ def detect_issues(sessions: list[dict]) -> list[dict]:
                 "session": s["id"][:8],
             })
 
+        for m in s.get("unknown_cost_models", []):
+            issues.append({
+                "type": "unknown_model",
+                "model": m,
+                "severity": "critical",
+                "session": s["id"][:8],
+            })
+
     # Deduplicate same type+session
     seen = set()
     deduped = []
@@ -538,7 +598,7 @@ def determine_health(issues: list[dict]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Parse Claude Code session logs")
+    parser = argparse.ArgumentParser(description="Parse local AI session token logs")
     parser.add_argument("--project-path", required=True, help="Absolute path to project directory")
     parser.add_argument("--session", help="Session UUID to analyse (default: most recent)")
     parser.add_argument("--today", action="store_true", help="Analyse all sessions today (calendar day)")
@@ -555,74 +615,21 @@ def main():
     else:
         mode = "session"
 
-    project_dir = find_project_dir(args.project_path)
-    session_files = get_session_files(project_dir, mode, args.session)
-
-    if not session_files:
-        result = {
-            "mode": mode,
-            "period": datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M"),
-            "sessions": [],
-            "totals": {"api_calls": 0, "input_tokens": 0, "output_tokens": 0, "ratio": 0, "est_cost_usd": 0.0},
-            "health": "ok",
-            "top_issues": [],
-            "savings_comparison": [],
-        }
-        print(json.dumps(result))
+    runtime = select_runtime()
+    if runtime == "codex":
+        result = CodexUsageAdapter(args.project_path, LOCAL_TZ).analyse(mode, args.session)
+        print(json.dumps(result, default=str))
         return
 
-    sessions = []
-    for sf in session_files:
-        try:
-            s = parse_session_file(sf, project_dir)
-            sessions.append(s)
-        except Exception as e:
-            print(f"WARNING: failed to parse {sf}: {e}", file=sys.stderr)
-
-    # Most recent first
-    sessions.sort(key=lambda s: s.get("timestamp_start") or "", reverse=True)
-
-    # Primary model: use the model from the first (most recent) session
-    primary_model = next(
-        (s["model"] for s in sessions if s.get("model")),
-        "anthropic_claude_sonnet_4_6"
-    )
-
-    # Aggregate totals
-    total_calls = sum(s["api_calls"] + s.get("subagent_calls", 0) for s in sessions)
-    total_in = sum(s["input_tokens"] for s in sessions)
-    total_out = sum(s["output_tokens"] for s in sessions)
-    total_cache_read = sum(s["cache_read_tokens"] for s in sessions)
-    total_cost = sum(s["est_cost_usd"] for s in sessions)
-    total_alt_cost = round(sum(s["recommendation"]["est_cost"] for s in sessions if s.get("recommendation")), 2)
-    total_duration_min = sum(s.get("duration_min", 0) for s in sessions)
-    overall_ratio = total_in // max(total_out, 1)
-
-    issues = detect_issues(sessions)
-    health = determine_health(issues)
-
-    savings = savings_comparison(primary_model, total_in, total_out, total_cache_read, 0, total_cost)
-
-    result = {
-        "mode": mode,
-        "period": datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M"),
-        "model": primary_model,
-        "sessions": sessions,
-        "totals": {
-            "api_calls": total_calls,
-            "input_tokens": total_in,
-            "cache_read_tokens": total_cache_read,
-            "output_tokens": total_out,
-            "ratio": overall_ratio,
-            "est_cost_usd": round(total_cost, 4),
-            "alt_cost_usd": total_alt_cost,
-            "duration_min": total_duration_min,
-        },
-        "health": health,
-        "top_issues": issues[:5],
-        "savings_comparison": savings,
-    }
-
+    result = ClaudeUsageAdapter(
+        find_project_dir=find_project_dir,
+        get_session_files=get_session_files,
+        parse_session_file=parse_session_file,
+        detect_issues=detect_issues,
+        determine_health=determine_health,
+        savings_comparison=savings_comparison,
+        local_tz=LOCAL_TZ,
+    ).analyse(args.project_path, mode, args.session)
     print(json.dumps(result, default=str))
 
 

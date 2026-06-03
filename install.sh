@@ -16,9 +16,14 @@
 #   bash install.sh --with-mergiraf   # install Mergiraf merge driver without prompting
 #   bash install.sh --skip-mergiraf   # skip Mergiraf without prompting
 #
-#   # Local testing (no clone — uses local plugin repo):
-#   bash install.sh --local /path/to/Claude-Agent-Flow --scope plugin
+#   # From an already-cloned plugin repo (no re-download):
+#   # Run from inside the TARGET repo you want to install into.
+#   bash /path/to/cloned-Claude-Agent-Flow/install.sh --local /path/to/cloned-Claude-Agent-Flow
+#   bash /path/to/cloned-Claude-Agent-Flow/install.sh --local  # script auto-detects its own dir
 #   bash install.sh --local  # auto-detects from PLUGIN_REPO_TARGET env var or .env
+#
+#   # Example using the staging clone:
+#   bash /Users/tim/git/timgranlundmarsden.github.com/claude-agent-flow-staging/install.sh --local
 
 set -euo pipefail
 
@@ -183,11 +188,9 @@ if [[ -n "$SCOPE" && "$SCOPE" != "plugin" && "$SCOPE" != "plugin+github" && "$SC
   exit 1
 fi
 
-# ── Must be inside a git repo ──
+# ── Notice if not inside a git repo (agent-flow runs in local-only mode) ──
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-  echo "Error: Not inside a git repository." >&2
-  echo "Run this from the root of the repo you want to install agent-flow into." >&2
-  exit 1
+  echo "Notice: Not inside a git repository. Agent-flow will run in local-only mode (no version control operations)."
 fi
 
 # Resolve project root for consent storage

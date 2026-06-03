@@ -17,9 +17,12 @@ actionlint
 .scratch/screenshots/
 .claude-agent-flow/bin/mergiraf
 .superpowers/brainstorm/
-# Session-start log (diagnostic, not committed)
+# Session-start log and tools-ready stamp (diagnostic, not committed)
 .claude/session-start.log
+.claude/.session-start-tools-ready
 .claude-agent-flow/optional-tools.json
 # --- End Agent Flow ---
 
 __pycache__/
+.codex/logs/
+.codex/.test-timings.json

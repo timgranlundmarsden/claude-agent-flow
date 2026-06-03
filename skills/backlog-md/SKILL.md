@@ -1,6 +1,15 @@
 ---
 name: backlog-md
-description: Task and document management with Backlog.md. Use this skill whenever working with tasks, tracking work, creating subtasks, searching or viewing existing tasks, or any time work should be preserved across sessions or handed off. Triggers include: "create a task", "track this", "add to backlog", "what tasks do I have", "mark as done", "continue on task", "break this into tasks", or any request where the outcome has a concrete deliverable worth tracking. Always use this skill when a project includes a Backlog.md setup and work needs to be logged. Prefer CLI commands unless MCP tools are confirmed working in the current environment.
+description: >-
+  Task and document management with Backlog.md. Use this skill whenever working
+  with tasks, tracking work, creating subtasks, searching or viewing existing
+  tasks, or any time work should be preserved across sessions or handed off.
+  Triggers include: "create a task", "track this", "add to backlog", "what tasks
+  do I have", "mark as done", "continue on task", "break this into tasks", or
+  any request where the outcome has a concrete deliverable worth tracking.
+  Always use this skill when a project includes a Backlog.md setup and work needs
+  to be logged. Prefer CLI commands unless MCP tools are confirmed working in the
+  current environment.
 ---
 
 # Backlog.md Task Management

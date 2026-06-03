@@ -150,26 +150,27 @@ If you don't see them in your file explorer, enable "Show hidden files".
 
 ### Agents (.claude/agents/)
 
-| Agent | Purpose |
-|-------|---------|
-| orchestrator | Breaks work into subtasks and delegates to specialist agents |
-| architect | Designs feature architecture — read-only, produces build plans |
-| explorer | Maps codebases quickly — finds files, patterns, and dependencies |
-| frontend | Builds UI components, styling, and client-side state |
-| backend | Builds API routes, business logic, DB queries, and server code |
-| storage | Owns all data persistence — databases, RLS policies, migrations |
-| tester | Writes and runs tests for both frontend and backend |
-| reviewer | Reviews code for security, correctness, performance, and style |
-| critic | Adversarial reviewer — tries to break code with edge cases |
-| author | Updates documentation — README, CHANGELOG, docstrings |
-| researcher | Searches the web for current docs, best practices, and comparisons |
-| ideator | Lateral thinking — explores solution spaces and creative approaches |
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| explorer | Haiku | Maps codebases quickly — finds files, patterns, and dependencies |
+| critic | Opus | Adversarial reviewer — tries to break code with edge cases |
+| researcher | Sonnet | Searches the web for current docs, best practices, and comparisons |
+
+Pipeline roles (Architect, Tester, Reviewer, Author, Frontend, Backend, Storage) are
+skill-backed — loaded automatically into builder briefs, not standalone agents.
 
 ### Skills (.claude/skills/)
 
 | Skill | Purpose |
 |-------|---------|
-| ways-of-working | Routing rules, execution model, and best practices for the agent team |
+| frontend-rules | UI components, CSS, and client-side state conventions |
+| backend-rules | API routes, business logic, and auth conventions |
+| storage-rules | Database schema and RLS policy ownership |
+| testing-rules | Test creation and full suite execution standards |
+| review-rules | Code review standards — BLOCKER / WARNING / SUGGESTION |
+| author-rules | Documentation and changelog authoring |
+| critic-rules | Adversarial evaluation standards |
+| ways-of-working | Routing rules, execution model, and best practices |
 | brainstorming | Interactive visual brainstorming — explores intent before implementation |
 | backlog-md | Task management via Backlog.md — create, track, and search tasks |
 | backlog-tpm | Coordinated multi-task project management with sub-agents |
@@ -185,7 +186,7 @@ If you don't see them in your file explorer, enable "Show hidden files".
 | Command | Purpose |
 |---------|---------|
 | /plan | Guided planning — brainstorm, architect, and save a structured plan |
-| /build | Full quality pipeline — architect, build, critic loop, test, review |
+| /build | Full quality pipeline — architect skill, build, critic loop, test, review |
 | /review | Adversarial code review without rebuilding |
 | /explore | Quick read-only codebase exploration |
 | /rebase | Guided git rebase workflow |

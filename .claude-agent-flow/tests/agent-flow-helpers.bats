@@ -1,6 +1,11 @@
 #!/usr/bin/env bats
 # Tests for agent-flow-workflow-helpers.sh
 
+setup_file() {
+  load test_helper
+  make_template_repo
+}
+
 setup() {
   load test_helper
   setup_temp_dirs
@@ -40,7 +45,7 @@ setup() {
 # ── Layer 1: Trailer in HEAD commit body (direct pushes) ────────────────────
 
 @test "check_sync_loop L1: detects trailer in direct push" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "chore: sync update
 
@@ -52,7 +57,7 @@ Agent-Flow-Sync-Origin: org/repo"
 }
 
 @test "check_sync_loop L1: extracts repo with slashes correctly" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from deep/nested/repo
 
@@ -66,7 +71,7 @@ Agent-Flow-Sync-Origin: deep/nested/repo"
 }
 
 @test "check_sync_loop L1: returns skip=false for normal commit" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign -m "feat: normal change"
   cd "$SOURCE_DIR"
   result=$(check_sync_loop)
@@ -75,7 +80,7 @@ Agent-Flow-Sync-Origin: deep/nested/repo"
 }
 
 @test "check_sync_loop L1: trailer takes priority over API (no API call needed)" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)
 
@@ -99,7 +104,7 @@ Agent-Flow-Sync-Origin: org/repo"
 # ── Layer 2: Trailer in HEAD^2 (merge commits) ─────────────────────────────
 
 @test "check_sync_loop L2: detects trailer in merge commit second parent" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   cd "$SOURCE_DIR"
   local default_branch
   default_branch=$(git branch --show-current)
@@ -121,7 +126,7 @@ Agent-Flow-Sync-Origin: org/target"
 # ── Layer 3: GitHub API label check (squash merges) ────────────────────────
 
 @test "check_sync_loop L3: detects sync label on squash-merged upstream PR" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/idea-factory (#31)"
   cd "$SOURCE_DIR"
@@ -147,7 +152,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: detects sync label on squash-merged downstream PR" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync agent-flow v3 (#15)"
   cd "$SOURCE_DIR"
@@ -173,7 +178,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: returns 'unknown' origin when label present but no trailer in body" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)"
   cd "$SOURCE_DIR"
@@ -199,7 +204,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: ignores PR without sync label" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: some feature (#10)"
   cd "$SOURCE_DIR"
@@ -224,7 +229,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: skips API when GITHUB_TOKEN not set" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)"
   cd "$SOURCE_DIR"
@@ -236,7 +241,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: skips API when GITHUB_REPOSITORY not set" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)"
   cd "$SOURCE_DIR"
@@ -248,7 +253,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: skips API when commit has no PR number" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo"
   cd "$SOURCE_DIR"
@@ -266,7 +271,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: handles API failure gracefully" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)"
   cd "$SOURCE_DIR"
@@ -286,7 +291,7 @@ MOCK_JSON
 }
 
 @test "check_sync_loop L3: handles malformed API response" {
-  setup_git_repo "$SOURCE_DIR"
+  clone_template_repo "$SOURCE_DIR"
   git -C "$SOURCE_DIR" commit --allow-empty --quiet --no-gpg-sign \
     -m "feat: sync managed files from org/repo (#42)"
   cd "$SOURCE_DIR"

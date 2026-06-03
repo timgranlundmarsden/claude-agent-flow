@@ -28,6 +28,27 @@ setup_git_repo() {
   git -C "$dir" commit --allow-empty --quiet -m "init"
 }
 
+# Build a cached git-repo template once per file in BATS_FILE_TMPDIR.
+# Idempotent: no-op if already built. Call from setup_file.
+make_template_repo() {
+  local tpl="$BATS_FILE_TMPDIR/template-repo"
+  [[ -d "$tpl/.git" ]] && return 0
+  mkdir -p "$tpl"
+  git -C "$tpl" init --quiet
+  git -C "$tpl" config user.name "test"
+  git -C "$tpl" config user.email "test@test.com"
+  git -C "$tpl" config commit.gpgsign false
+  git -C "$tpl" commit --allow-empty --quiet -m "init"
+}
+
+# Clone the file-scoped template repo into $dest via cp -a (one fork per test).
+# Call from setup() after make_template_repo has been called in setup_file.
+clone_template_repo() {
+  local dest="$1"
+  mkdir -p "$dest"
+  cp -a "$BATS_FILE_TMPDIR/template-repo/." "$dest/"
+}
+
 # Write a manifest.yml to source_dir/.claude-agent-flow/ (used by sync engine tests)
 create_manifest() {
   local dir="$1"
@@ -119,4 +140,12 @@ assert_jq_count() {
     echo "FAIL: $label (expected=$expected got=$actual)" >&2
     return 1
   fi
+}
+
+
+read_capability() {
+  local dir="$1"
+  local key="$2"
+  local state_file="$dir/.claude-agent-flow/sync-state.json"
+  jq -r ".capabilities.$key // false" "$state_file" 2>/dev/null || echo "false"
 }

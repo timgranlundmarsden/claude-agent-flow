@@ -9,123 +9,109 @@ description: >
 
 ## Team Philosophy
 
-1. **Focused context beats broad context.** Narrow agent scope = better reasoning.
-2. **Delegate early, not late.** Architect before builder is cheaper than rework.
+1. **Parent implements directly.** Default tier: zero subagent spawns. The parent (Claude) reads, plans, codes, tests, and documents end-to-end without routing to builder agents.
+2. **Focused context beats broad context.** Narrow agent scope = better reasoning.
 3. **Clarity over speed.** Vague brief → vague code. The brief is the bottleneck.
-4. **Always use the `AskUserQuestion` tool for discrete options** (multiple choice, yes/no, A/B/C) — never plain text. This includes design approvals, skill confirmations, and any question where the answer set is bounded.
-5. **Orchestrator never fixes code.** When critic, reviewer, or tester finds issues, route them back to the relevant builder agent. The orchestrator passes the issue list — the builder applies the fix. No exceptions, even for "simple" fixes.
+4. **Always use `AskUserQuestion` for discrete options** (multiple choice, yes/no, A/B/C) — never plain text.
 
 ---
 
-## Execution Model: Sequential by Default
+## Execution Model: Parent-Direct (Default)
 
-All agents run **sequentially** — one at a time, dependency order. Standard full sequence:
+The parent runs end-to-end. Subagents are used sparingly for specific roles only:
+
+| When | Spawn | Mode |
+|---|---|---|
+| `/plan`: repo >100 files AND entry points not read | `explorer` (read-only, ≤20 tool calls) | parallel if researcher also spawns |
+| `/plan`: domain-specific facts needed | `researcher` (web search) | parallel if explorer also spawns |
+| `/plan`: new external dep flagged | `researcher` (dependency validation) | parallel if explorer also spawns |
+| `/build --strict` or `--loops N>0` | `critic` (adversarial review, once per loop) | sequential (depends on builder output) |
+| `/review --strict` or `--loops N>0` | `critic` (adversarial review, once per loop) | parallel with external-review if both enabled |
+
+**Never spawn subagents outside these rules.** Default tier (`/build`, `/review`) = zero spawns. `/plan` default tier may spawn explorer and/or researcher per the rules above.
+
+### Parallelism Rule
+
+`run_in_background=True` is allowed **only** for independent spawns. **A spawn is independent iff its inputs do not depend on another spawn's outputs from the same pipeline stage.**
+
+- **Independent pairs (may parallelise):** `explorer` + `researcher` in `/plan`; `critic` + `external-review` in `/build --strict` or `/review --strict` (both consume the same diff).
+- **Dependent pairs (must remain sequential):** builder → critic (critic consumes builder's diff); critic → builder-fix (builder-fix consumes critic's FAIL list); tester → builder-fix.
+- Default is sequential. Parallelism is opt-in per invocation. No global auto-parallelise heuristic. If in doubt, run sequentially.
+
+### Mixed Pipeline Pattern
+
+When combining independent and dependent spawns in one pipeline:
 
 ```
-explorer → architect → storage (if schema) → backend → frontend → tester → critic loop (if /build) → reviewer → author
+# 1. Launch independent spawns in background
+Agent(subagent_type="A", run_in_background=True, ...)  # write log marker immediately
+Agent(subagent_type="B", run_in_background=True, ...)  # write log marker immediately
+# Both markers must appear in progress before either result is consumed.
+
+# 2. Wait point — parent blocks until both report complete
+# Stall detection applies per-spawn: A stalling does not cancel B. Partial completion allowed.
+
+# 3. Dependent spawn runs sequentially, consuming A and B outputs
+Agent(subagent_type="C", run_in_background=False, ...)
 ```
 
-Adjust order by dependencies. Architect dispatches researcher internally if needed.
+### Stall Detection
 
-### Foreground-only rule
+A subagent producing no output for its configured stall threshold triggers a cancel-and-retry. This applies identically to foreground (`run_in_background=False`) and background (`run_in_background=True`) spawns — same threshold, cancelled the same way, parent notified the same way. Parallel fan-out does not disable stall checks.
 
-Never use `run_in_background: true` in a sequential pipeline. Foreground catches stalls immediately.
+### Agent Roster
 
-**Stall detection:** Builder agents (frontend, backend, storage) stalling 5+ minutes with no file writes
-or `[MILESTONE]` markers → cancel and retry with incremental writing pattern. Non-builder agents: any
-tool call or text output counts as activity.
+| Agent | Model | Role |
+|---|---|---|
+| critic | opus | Adversarial review — tries to break code |
+| researcher | sonnet | Web research, docs, library investigation |
+| explorer | haiku | Codebase navigation — read only, cheap |
 
 ---
 
 ## Two Operational Modes
 
 ### Full Pipeline (`/build`)
-Use when correctness matters more than speed: security-critical paths, public APIs,
-data migrations, anything hard to roll back. Runs the complete sequence with adversarial critic loop.
+Use when correctness matters more than speed: security-critical paths, public APIs, data migrations. Full sequence: implement → critic loop → test → review → commit.
 
 ### Lite Mode (default)
-Use for everyday work: bug fixes, small features, single-file changes, prototypes, docs.
-Runs: explorer → builder → reviewer. Builder covers basic tests and docs inline.
-Ask: "Could one agent handle this cleanly?" If yes, lite mode.
-
----
-
-## Agent Routing Rules
-
-Key sequencing constraints (see agent files for full domain details):
-- **Orchestrator:** Multi-domain only. Never writes code — delegates only.
-- **Architect:** Before features touching 3+ files or new patterns. Dispatches researcher internally.
-- **Storage → Backend:** Storage MUST complete before backend starts when schema changes. Storage owns all RLS policies.
-- **Frontend / Backend:** Typically backend first (API exists), then frontend. Reverse if no dependency.
-- **Researcher:** Before the build starts, not during.
-- **Tester:** After all builders. Never skip on `/build`. Canonical BATS command: `.claude-agent-flow/tests/lib/bats-core/bin/bats --jobs 8 .claude-agent-flow/tests/*.bats`
-- **Reviewer:** After ALL builders and tester. Once only.
-- **Critic:** Only via `/build` or `/review`. Reviews diff only, not full codebase.
-- **Explorer:** Before every non-trivial task. Cheap on haiku — use constantly.
-- **Author:** Last, after reviewer sign-off. Never mid-feature.
+Use for everyday work: bug fixes, small features, single-file changes. Parent handles everything inline. No subagents unless using `--strict`.
 
 ---
 
 ## The Adversarial Review Loop
 
 ```
-builder → critic (FAIL) → builder fixes diff only → critic (FAIL) → ... → critic (PASS) → tester → reviewer → author
+parent builds → critic (FAIL) → parent fixes diff only → critic → ... → critic (PASS) → commit
 ```
 
 Key rules:
-- Builder fixes ONLY flagged issues — no bonus refactoring
+- Parent fixes ONLY flagged issues — no bonus refactoring
 - Critic reviews ONLY the new diff — not the whole codebase
-- Hard limit: 3 iterations (default), `--loops N` to override. Persistent failure = design problem, not code.
-- **Critic integrity:** The critic is NEVER told which iteration it is on or how many remain. The orchestrator tracks iterations internally. The critic's verdict must be based solely on code quality.
-
-### Writing a good /build brief
-Include: what it must do, what it must NOT do, known edge cases, acceptance criteria.
-
-Bad: "build the login endpoint"
-Good: "build the login endpoint — email + password, returns JWT, rate-limit 5/min/IP,
-must not expose whether email exists, log failed attempts to audit table"
+- Hard limit: 3 iterations (default), `--loops N` to override
+- **Critic integrity:** The critic is NEVER told which iteration it is on or how many remain. Verdict based solely on code quality.
 
 ---
 
 ## Cost Management
 
-### Model tiers (aspirational)
+### When to spawn subagents
+Subagents multiply tokens 4-7x. Justified when focused context beats one bloated session. NOT justified for single-file tasks or simple bug fixes. Default to lite mode; escalate with `--strict`.
 
-The `model:` field in agent frontmatter is not yet respected at runtime. All subagents
-inherit the parent model. Values document intended tiers for when per-agent routing ships.
+### Token Efficiency Rules
 
-- **opus:** orchestrator, architect, ideator, critic — expensive, use rarely
-- **sonnet:** frontend, backend, storage, researcher, tester, reviewer — workhorse
-- **haiku:** explorer, author — cheap, use constantly
-
-### When to use subagents
-Subagents multiply tokens 4-7x. Justified when focused context beats one bloated session.
-NOT justified for single-file tasks or simple bug fixes. Default to lite mode; escalate when needed.
-
-### Token Efficiency Rules (mandatory)
-
-1. **Output brevity:** Completion reports under 30 lines (explorer/author/tester: 20). Structured, not prose.
+1. **Output brevity:** Completion reports under 30 lines. Structured, not prose.
 2. **No redundant reading:** Never include file contents in output. Downstream agents read files themselves.
-3. **Minimal briefing:** Orchestrator briefs under 15 lines. Pass scope, file paths, contracts, constraints only.
-4. **Diff-only reviews:** Critic/reviewer review the diff only — never re-read full codebase each pass.
-5. **No preamble:** Start with structured output immediately.
+3. **Diff-only reviews:** Critic reviews the diff only — never re-reads the full codebase.
+4. **No preamble:** Start with structured output immediately.
 
-### Agent Roster
+---
 
-| Agent | Model | Role |
-|---|---|---|
-| orchestrator | opus | Routes and sequences — never writes code |
-| architect | opus | Design decisions — may dispatch researcher |
-| ideator | opus | Lateral thinking — output to human only |
-| critic | opus | Adversarial review — tries to break code |
-| frontend | sonnet | UI components, styling, client-side state |
-| backend | sonnet | API routes, business logic, data persistence, auth |
-| storage | sonnet | All persistence — sole RLS owner |
-| researcher | sonnet | Web research, docs, library investigation |
-| tester | sonnet | Tests — write, verify, visual checks |
-| reviewer | sonnet | Code review — read only |
-| explorer | haiku | Codebase navigation — read only, cheap |
-| author | haiku | Docs and changelog — last step only |
+## Agent Routing Rules
+
+- **Explorer:** Invoke before every non-trivial task. Cheap — use constantly. Read-only; never edits.
+- **Researcher:** Before the build starts, not during. Use for external library docs, current best practices.
+- **Critic:** Only via `/build` or `/review`. Reviews diff only. Passes ONLY when no failure scenario found.
 
 ---
 
@@ -133,58 +119,20 @@ NOT justified for single-file tasks or simple bug fixes. Default to lite mode; e
 
 | Failure | Symptom | Fix |
 |---|---|---|
-| Orchestrator implements | Editing files directly | Remind: "delegate only — never edit files" |
-| Orchestrator applies fixes | Fixing critic/reviewer issues directly instead of routing to builder | Always pass issue list to the relevant builder agent — even for "trivial" fixes |
-| Critic loop won't converge | New issues each iteration | Stop loop → architect with FAIL report → redesign |
-| Builder off-pattern | Inconsistent files/patterns | Always run explorer before builders on multi-file tasks |
+| Parent applies fixes mid-critic-loop | Bonus refactoring beyond flagged items | Fix only what critic flagged — nothing more |
+| Critic loop won't converge | New issues each iteration | Stop → redesign approach |
+| Explorer over-reads | Context bloat | Cap explorer at 20 tool calls; output paths only |
 | Researcher mid-build | Build pauses for research | Invoke researcher before build, not during |
-| Storage/backend out of sync | Backend queries missing columns | Storage must complete before backend starts |
-| Agent stalls on large output | No writes/milestones for 5+ min | Use incremental writing pattern (skeleton + Edit calls) |
-
-### Incremental Writing Pattern
-
-For files >200 lines, builders MUST use skeleton-first:
-
-1. **Write skeleton** (30-80 lines) with `TODO` placeholders per section
-2. **Fill via Edit** — sequential calls, each under 100 lines
-3. **Never write >200 lines** in a single Write or Edit call
-
-Placeholder styles: HTML `<!-- TODO -->`, JS/TS `// TODO`, JSX `{/* TODO */}`,
-Python `# TODO`, SQL `-- TODO`, CSS `/* TODO */`
-
-Output `[MILESTONE]` markers after each section. Mandatory for all builder agents.
-
-### Brief Optimization
-
-Orchestrator MUST inline reference material (CSS tokens, patterns, contracts, schemas) in builder briefs.
-Include directive: "Do NOT read additional files for context. All reference material is provided below."
-Target: 0-2 file reads by builder (CLAUDE.md and agent file don't count).
-
-### Progress Reporting
-
-Builders MUST output `[MILESTONE]` markers: `skeleton written`, `section N/M complete`, `file complete`.
-Orchestrator checks every 3 min. Builder stall (5 min, no writes/markers) → cancel and retry with skeleton+edit.
-Non-builder agents: any tool call or text output = activity.
 
 ---
 
-## Visual Layout Verification
+## Writing Good Briefs
 
-After any CSS or layout fix, agents MUST run `visual-check.sh` before marking done.
-See `playwright-cli-helpers` skill for full usage, evidence capture, and troubleshooting.
-
-Agents with visual responsibility: frontend, tester, critic, reviewer (flags missing checks).
-UI skills required in agent frontmatter: `playwright-cli`, `playwright-cli-helpers`.
-
----
-
-## Writing Good Agent Briefs
-
-Every brief must answer four questions:
+Every brief must answer:
 1. **Scope** — which files, domains, systems
 2. **Constraints** — what must not change or break
 3. **Done condition** — specific, testable outcome
-4. **Known unknowns** — edge cases, risks, dependencies to investigate
+4. **Known unknowns** — edge cases, risks, dependencies
 
 ---
 
@@ -198,13 +146,7 @@ Multi-file feature, hard to undo  → /build <brief>
 Feature planning                  → /plan <idea>
 Harden existing code              → /review <files>
 Codebase question                 → explorer
-Design decision                   → architect
-Stuck on approach                 → ideator
 Library/API research              → researcher
-Schema/storage only               → storage
-API/server only                   → backend
-UI/component only                 → frontend
-Full feature (schema+API+UI)      → orchestrator
 ```
 
 Decision rule: "Could this break something across multiple systems?" Yes → `/build`. Otherwise → lite.

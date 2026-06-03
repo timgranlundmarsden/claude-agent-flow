@@ -539,6 +539,15 @@
       .breadcrumb-nav { font-size: 12px; }
     }
 
+    /* ── SKILL ROLE NODES ─────────────────────────────────────────── */
+    .node-card.skill-role { border-style: dashed; background: rgba(0,113,227,.03); }
+    .skill-tag {
+      display: inline-block; font-size: 10px; border-radius: 4px;
+      background: rgba(0,0,0,.06); padding: 1px 6px;
+      color: var(--text-secondary); font-weight: 500;
+      letter-spacing: .02em; margin-top: 1px; align-self: flex-start;
+    }
+
     /* ── VISUALLY HIDDEN ────────────────────────────────────────── */
     .visually-hidden {
       position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -687,14 +696,15 @@
       <div class="pipeline-vertical" role="list">
 
         <div class="node-wrapper" role="listitem">
-          <a href="#refinement" class="node-card-link">
-            <div class="node-card" style="--i:0">
+          <a href="#design" class="node-card-link">
+            <div class="node-card skill-role" style="--i:0">
               <div class="node-card-top">
                 <span class="node-dot dot-opus" aria-hidden="true"></span>
-                <span class="node-card-name">Ideator</span>
+                <span class="node-card-name">Architect</span>
                 <span class="node-card-model opus">Opus</span>
               </div>
-              <p class="node-card-desc">Explores solution space via brainstorming skill — one question at a time, multiple-choice where possible.</p>
+              <p class="node-card-desc">File-level design decisions and implementation plans. Confirms skills and produces the technical plan.</p>
+              <span class="skill-tag">skill</span>
             </div>
           </a>
         </div>
@@ -704,21 +714,6 @@
         <div class="node-wrapper" role="listitem">
           <a href="#design" class="node-card-link">
             <div class="node-card" style="--i:1">
-              <div class="node-card-top">
-                <span class="node-dot dot-opus" aria-hidden="true"></span>
-                <span class="node-card-name">Architect</span>
-                <span class="node-card-model opus">Opus</span>
-              </div>
-              <p class="node-card-desc">File-level design decisions and implementation plans. Confirms skills and produces the technical plan.</p>
-            </div>
-          </a>
-        </div>
-
-        <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
-
-        <div class="node-wrapper" role="listitem">
-          <a href="#design" class="node-card-link">
-            <div class="node-card" style="--i:2">
               <div class="node-card-top">
                 <span class="node-dot dot-sonnet" aria-hidden="true"></span>
                 <span class="node-card-name">Researcher</span>
@@ -733,14 +728,32 @@
         <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
 
         <div class="node-wrapper" role="listitem">
+          <a href="#external-review" class="node-card-link">
+            <div class="node-card skill-role" style="--i:2">
+              <div class="node-card-top">
+                <span class="node-dot dot-sonnet" aria-hidden="true"></span>
+                <span class="node-card-name">Plan External Review</span>
+                <span class="node-card-model sonnet">Sonnet</span>
+              </div>
+              <p class="node-card-desc">External LLM reviews the plan for gaps, contradictions, and unverifiable claims.</p>
+              <span class="optional-tag">if configured</span>
+              <span class="skill-tag">skill</span>
+            </div>
+          </a>
+        </div>
+
+        <div class="node-wrapper" aria-hidden="true"><div class="connector"></div></div>
+
+        <div class="node-wrapper" role="listitem">
           <a href="#save" class="node-card-link">
-            <div class="node-card" style="--i:3">
+            <div class="node-card skill-role" style="--i:3">
               <div class="node-card-top">
                 <span class="node-dot dot-haiku" aria-hidden="true"></span>
                 <span class="node-card-name">Author</span>
                 <span class="node-card-model haiku">Haiku</span>
               </div>
               <p class="node-card-desc">Writes plan document and creates backlog task with full field mapping. Pushes to git.</p>
+              <span class="skill-tag">skill</span>
             </div>
           </a>
         </div>
@@ -771,9 +784,8 @@
     <!-- Phase 2 — Refinement -->
     <div class="agent-group tier-opus" id="refinement" aria-labelledby="phase-2-title">
       <div class="agent-group-header">
-        <span class="node-dot dot-opus" aria-hidden="true"></span>
-        <span class="agent-group-name">Ideator</span>
-        <span class="node-card-model opus">Opus</span>
+        <span class="agent-group-name">Brainstorming</span>
+        <span class="agent-group-extra">via brainstorming skill</span>
       </div>
       <div class="phase-header">
         <span class="phase-badge" aria-hidden="true">2</span>
@@ -817,13 +829,13 @@ design with clear answers to:
         <span class="node-dot dot-opus" aria-hidden="true"></span>
         <span class="agent-group-name">Architect</span>
         <span class="node-card-model opus">Opus</span>
-        <span class="agent-group-extra">+ Researcher (Sonnet, optional)</span>
+        <span class="agent-group-extra">skill · + Researcher (Sonnet, optional)</span>
       </div>
       <div class="phase-header">
         <span class="phase-badge" aria-hidden="true">3</span>
         <h2 class="phase-title" id="phase-3-title">Design — Architect Plan</h2>
       </div>
-      <p class="phase-desc">The architect agent produces a design plan. If skills were confirmed during refinement, the architect includes a Skills directive in the plan.</p>
+      <p class="phase-desc">The architect skill produces a design plan. If skills were confirmed during refinement, the architect includes a Skills directive in the plan.</p>
 
       <div class="code-excerpt" role="region" aria-label="Skills inference excerpt">
         <span class="code-excerpt-label">commands/plan.md</span>
@@ -839,7 +851,37 @@ Collect the confirmed set as <span class="st">confirmed_skills</span>.</pre>
 
       <div class="callout-box callout-purple" role="note">
         <span class="callout-icon" aria-hidden="true">&#10024;</span>
-        <span>The orchestrator infers which skills are relevant and asks the human to confirm. These flow through to the architect's plan as a <strong>Skills:</strong> directive, and from there into /build — so builder agents automatically load the right skills before starting work.</span>
+        <span>Relevant skills are inferred and confirmed with the human. These flow through to the architect's plan as a <strong>Skills:</strong> directive, and from there into /build — so builder agents automatically load the right skills before starting work.</span>
+      </div>
+    </div>
+
+    <div class="group-connector" aria-hidden="true"></div>
+
+    <!-- Phase 3a — Plan External Review -->
+    <div class="agent-group tier-sonnet" id="external-review" aria-labelledby="phase-3a-title">
+      <div class="agent-group-header">
+        <span class="agent-group-name">Plan External Review</span>
+        <span class="agent-group-extra">if EXTERNAL_REVIEW_API_KEY configured</span>
+      </div>
+      <div class="phase-header">
+        <span class="phase-badge" aria-hidden="true">3a</span>
+        <h2 class="phase-title" id="phase-3a-title">External Review — Plan Quality Check</h2>
+      </div>
+      <p class="phase-desc">An external LLM reviews the plan document for gaps, contradictions, unverifiable acceptance criteria, and missing edge cases. Findings are appended to the plan before the Author saves it.</p>
+
+      <div class="code-excerpt" role="region" aria-label="Plan external review excerpt">
+        <span class="code-excerpt-label">commands/plan.md</span>
+        <pre>After architect produces the plan, run external
+plan review if <span class="st">EXTERNAL_REVIEW_API_KEY</span> is set:
+<span class="kw">-</span> Check for internal contradictions
+<span class="kw">-</span> Flag unverifiable acceptance criteria
+<span class="kw">-</span> Surface missing edge cases
+<span class="kw">-</span> Append findings to plan before save</pre>
+      </div>
+
+      <div class="callout-box callout-blue" role="note">
+        <span class="callout-icon" aria-hidden="true">&#9432;</span>
+        <span>External review runs silently if not configured — it never blocks the pipeline. When configured, PASS verdicts confirm plan quality; FAIL findings are appended to the plan document for the human to review before /build begins.</span>
       </div>
     </div>
 
@@ -851,6 +893,7 @@ Collect the confirmed set as <span class="st">confirmed_skills</span>.</pre>
         <span class="node-dot dot-haiku" aria-hidden="true"></span>
         <span class="agent-group-name">Author</span>
         <span class="node-card-model haiku">Haiku</span>
+        <span class="agent-group-extra">skill</span>
       </div>
       <div class="phase-header">
         <span class="phase-badge" aria-hidden="true">4</span>

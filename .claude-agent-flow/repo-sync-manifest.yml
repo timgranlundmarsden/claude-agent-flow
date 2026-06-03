@@ -69,3 +69,5 @@ merge_files:
 #     enabled: false
 #   - repo: "YOUR-ORG/your-target-repo-3"
 #     enabled: false
+#   - repo: "YOUR-ORG/your-target-repo-4"
+#     enabled: false

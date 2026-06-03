@@ -18,10 +18,26 @@ EOF
 
 # ── agent-flow-install.sh tests ──────────────────────────────────────────────
 
-@test "1. exits if not in git repo" {
-  # TARGET_DIR is a plain directory, not a git repo
+@test "1. succeeds in non-git directory with degraded capabilities" {
+  # TARGET_DIR is a plain directory, not a git repo — should succeed with notice
+  write_install_manifest "$SOURCE_DIR"
   run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh'"
-  assert_failure
+  assert_success
+  [[ "$output" == *"local-only mode"* ]]
+  # sync-state.json should exist with git_repo: false
+  [[ -f "$TARGET_DIR/.claude-agent-flow/sync-state.json" ]]
+  local caps
+  caps=$(jq -r '.capabilities.git_repo | tostring' "$TARGET_DIR/.claude-agent-flow/sync-state.json")
+  [[ "$caps" == "false" ]]
+}
+
+@test "1b. project name falls back to folder name when git is unavailable" {
+  local named_dir="$BATS_TEST_TMPDIR/my-nogit-project"
+  mkdir -p "$named_dir"
+  write_install_manifest "$SOURCE_DIR"
+  run bash -c "cd '$named_dir' && bash '$SCRIPT_DIR/agent-flow-install.sh'"
+  assert_success
+  [[ "$output" == *"my-nogit-project"* ]]
 }
 
 @test "2. exits if jq not found" {
@@ -78,6 +94,20 @@ EOF
   run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo '$SOURCE_DIR'"
   assert_success
   [[ -f "$TARGET_DIR/.claude-agent-flow/sync-state.json" ]]
+}
+
+@test "5b. sync-state.json contains capabilities object after git install" {
+  setup_git_repo "$TARGET_DIR"
+  write_install_manifest "$SOURCE_DIR"
+  run bash -c "cd '$TARGET_DIR' && bash '$SCRIPT_DIR/agent-flow-install.sh' --source-repo '$SOURCE_DIR'"
+  assert_success
+  [[ -f "$TARGET_DIR/.claude-agent-flow/sync-state.json" ]]
+  local git_repo
+  git_repo=$(jq -r '.capabilities.git_repo | tostring' "$TARGET_DIR/.claude-agent-flow/sync-state.json")
+  [[ "$git_repo" == "true" ]]
+  local git_binary
+  git_binary=$(jq -r '.capabilities.git_binary | tostring' "$TARGET_DIR/.claude-agent-flow/sync-state.json")
+  [[ "$git_binary" == "true" ]]
 }
 
 @test "6. replaces CHANGEME in CLAUDE.md when project name passed" {
