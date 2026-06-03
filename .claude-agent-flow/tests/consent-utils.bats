@@ -4,6 +4,11 @@
 # Covers: consent_read_mergiraf, consent_write_mergiraf,
 #         migrate_mergiraf_consent, _tty_available_consent.
 
+setup_file() {
+  load test_helper
+  make_template_repo
+}
+
 setup() {
   load test_helper
 
@@ -11,14 +16,10 @@ setup() {
   export HOME="$BATS_TEST_TMPDIR/home"
   export XDG_CONFIG_HOME="$HOME/.config"
   export PROJECT_ROOT="$BATS_TEST_TMPDIR/project"
-  mkdir -p "$HOME/.config" "$PROJECT_ROOT"
+  mkdir -p "$HOME/.config"
 
-  # Initialise a git repo so .git/config exists
-  git -C "$PROJECT_ROOT" init --quiet
-  git -C "$PROJECT_ROOT" config user.name "test"
-  git -C "$PROJECT_ROOT" config user.email "test@test.com"
-  git -C "$PROJECT_ROOT" config commit.gpgsign false
-  git -C "$PROJECT_ROOT" commit --allow-empty --quiet -m "init"
+  # Clone pre-built git repo template (one cp -a instead of 5 git subprocesses)
+  clone_template_repo "$PROJECT_ROOT"
 
   # Source the library under test
   # shellcheck source=/dev/null

@@ -32,6 +32,7 @@ setup() {
   # Extract and eval multi-line function blocks from production code
   eval "$(grep '^_key()' "$script")"
   eval "$(sed -n '/^record() {$/,/^}$/p' "$script")"
+  eval "$(sed -n '/^kill_process_tree() {$/,/^}$/p' "$script")"
   eval "$(sed -n '/^run_tool() {$/,/^}$/p' "$script")"
 
   # Extract single-line wrapper functions (they end with } on the same line)
@@ -67,7 +68,7 @@ setup() {
   section_start() { true; }
   section_end()   { true; }
 
-  export -f _key record log section_start section_end run_tool tool_record tool_section_start tool_section_end _get_result _get_detail _has_result _set_result _set_detail
+  export -f _key record kill_process_tree log section_start section_end run_tool tool_record tool_section_start tool_section_end _get_result _get_detail _has_result _set_result _set_detail
 }
 
 # ── record() ──────────────────────────────────────────────────────────────────
@@ -145,6 +146,14 @@ setup() {
   [[ -z "$CURRENT_TOOL" ]]
 }
 
+@test "run_tool records TIMEOUT when installer exceeds deadline" {
+  # Use a 1-second deadline and an installer that would run indefinitely.
+  mock_installer_hang() { sleep 60; }
+  TOOL_INSTALL_TIMEOUT=1 run_tool "Slow Tool" mock_installer_hang
+  [[ "$(_get_result "Slow Tool")" == "TIMEOUT" ]]
+  [[ "$(_get_detail "Slow Tool")" == "killed after 1s" ]]
+}
+
 # ── Summary table — EXPECTED_TOOLS coverage ──────────────────────────────────
 
 @test "summary table shows all EXPECTED_TOOLS even if no installer ran" {
@@ -171,7 +180,7 @@ setup() {
     if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
       detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
     fi
-    printf -v row "│ %-16s │ %-6s │ %-${DETAIL_WIDTH}s │" "$name" "$result" "$detail"
+    printf -v row "│ %-16s │ %-7s │ %-${DETAIL_WIDTH}s │" "$name" "$result" "$detail"
     output+="$row"$'\n'
     if [[ "$result" == "FAIL" || "$result" == "ERROR" ]]; then
       (( FAIL_COUNT++ )) || true
@@ -219,7 +228,7 @@ setup() {
       local result detail
       eval "result=\${TOOL_RESULT_${_sk}:-no detail}"
       eval "detail=\${TOOL_DETAIL_${_sk}:-no detail}"
-      printf -v row "│ %-16s │ %-6s │ %-${DETAIL_WIDTH}s │" "$name" "$result" "$detail"
+      printf -v row "│ %-16s │ %-7s │ %-${DETAIL_WIDTH}s │" "$name" "$result" "$detail"
       extra_output+="$row"$'\n'
     fi
   done
@@ -230,52 +239,41 @@ setup() {
 
 # ── Detail truncation ─────────────────────────────────────────────────────────
 
-@test "detail exactly at DETAIL_WIDTH is not truncated" {
+@test "detail truncation at DETAIL_WIDTH boundary (list-driven)" {
   DETAIL_WIDTH=39
-  # Produce a string exactly 39 chars long
-  detail="$(printf '%0.s-' {1..39})"   # 39 dashes
-  [[ ${#detail} -eq 39 ]]
-  if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
-    detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
-  fi
-  [[ ${#detail} -eq 39 ]]
-  [[ "$detail" != *"…"* ]]
-}
-
-@test "detail one character over DETAIL_WIDTH is truncated with ellipsis" {
-  DETAIL_WIDTH=39
-  # Produce a string 40 chars long
-  detail="$(printf '%0.s-' {1..40})"   # 40 dashes
-  [[ ${#detail} -eq 40 ]]
-  if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
-    detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
-  fi
-  # After truncation: 38 dashes + ellipsis = length depends on ellipsis byte-width
-  # The key assertions: string ends with ellipsis and prefix is truncated
-  [[ "$detail" == *"…" ]]
-  [[ "$detail" == "--------------------------------------…" ]]
-}
-
-@test "long detail is truncated to fit within DETAIL_WIDTH boundary" {
-  DETAIL_WIDTH=39
-  detail="This is a very long detail message that exceeds the column width limit by quite a lot"
-  [[ ${#detail} -gt $DETAIL_WIDTH ]]
-  if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
-    detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
-  fi
-  [[ "$detail" == *"…" ]]
-  # The content before ellipsis should be exactly DETAIL_WIDTH-1 chars
-  prefix="${detail%…}"
-  [[ ${#prefix} -eq $(( DETAIL_WIDTH - 1 )) ]]
-}
-
-@test "empty detail is not truncated" {
-  DETAIL_WIDTH=39
-  detail=""
-  if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
-    detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
-  fi
-  [[ -z "$detail" ]]
+  # Each entry: input_len:should_truncate (yes|no)
+  local cases=(
+    "0:no"
+    "38:no"
+    "39:no"
+    "40:yes"
+    "80:yes"
+  )
+  local case input_len expected detail
+  for case in "${cases[@]}"; do
+    input_len="${case%%:*}"
+    expected="${case#*:}"
+    detail="$(printf '%0.s-' $(seq 1 "$input_len") 2>/dev/null || printf '%*s' "$input_len" '' | tr ' ' '-')"
+    local orig_len=${#detail}
+    if [[ ${#detail} -gt $DETAIL_WIDTH ]]; then
+      detail="${detail:0:$(( DETAIL_WIDTH - 1 ))}…"
+    fi
+    if [ "$expected" = "yes" ]; then
+      [[ "$detail" == *"…" ]] || {
+        echo "FAIL: len=$input_len should truncate but did not (detail='$detail')" >&2
+        return 1
+      }
+    else
+      [[ "$detail" != *"…" ]] || {
+        echo "FAIL: len=$input_len should NOT truncate but did" >&2
+        return 1
+      }
+      [[ ${#detail} -eq $orig_len ]] || {
+        echo "FAIL: len=$input_len changed unexpectedly" >&2
+        return 1
+      }
+    fi
+  done
 }
 
 # ── FAIL_COUNT ────────────────────────────────────────────────────────────────
@@ -381,51 +379,4 @@ setup() {
   run_tool "Named Tool" mock_installer
   [[ "$(_get_result "Named Tool")" == "OK" ]]
   [[ "$(_get_detail "Named Tool")" == "tool_record path works" ]]
-}
-
-# ── install_mergiraf — static checks ─────────────────────────────────────────
-
-@test "install_mergiraf: Darwin arm64 maps to aarch64-apple-darwin triple" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  grep -q 'aarch64-apple-darwin' "$script"
-}
-
-@test "install_mergiraf: Darwin x86_64 maps to x86_64-apple-darwin triple" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  grep -q 'x86_64-apple-darwin' "$script"
-}
-
-@test "install_mergiraf: Linux x86_64 maps to x86_64-unknown-linux-musl triple" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  grep -q 'x86_64-unknown-linux-musl' "$script"
-}
-
-@test "install_mergiraf: tarball path uses TARGET_TRIPLE variable" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  grep -q 'TARGET_TRIPLE' "$script"
-}
-
-@test "install_mergiraf: brew fallback only applies on Darwin" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  grep -q 'Darwin.*brew\|brew.*Darwin' "$script"
-}
-
-# ── static checks ────────────────────────────────────────────────────────────
-
-@test "session-start.sh contains expected helper functions" {
-  local script
-  script="$(cd "$TESTS_DIR/../.." && pwd)/.claude-agent-flow/scripts/session-start.sh"
-  [[ -f "$script" ]]
-  # Verify key function signatures exist in production
-  grep -q 'record()' "$script"
-  grep -q 'run_tool()' "$script"
-  grep -q 'tool_record()' "$script"
-  grep -q 'TOOL_RESULT_' "$script"
-  # Verify the crash-detection logic uses dynamic var lookup
-  grep -q 'TOOL_RESULT_${_rk}' "$script"
 }

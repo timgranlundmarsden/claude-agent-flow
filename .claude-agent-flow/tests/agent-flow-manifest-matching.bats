@@ -125,175 +125,133 @@ targets: []
 EOF
 }
 
-# ── SECTION 1: Managed files glob matching ──────────────────────────────────
+# ── SECTION 1: Managed files — positive matches (list-driven) ──────────────
 
-@test "1. agent-flow agent .md files match glob" {
+@test "1. agent .md and command .md files match glob (list-driven)" {
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/agents/frontend.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/agents/backend.md"
-  assert_success
-}
-
-@test "2. .claude/agents/ .md files DO match" {
-  write_production_manifest
-  # Create the file so glob.glob() can find it
   touch "$SOURCE_DIR/.claude/agents/custom-agent.md"
-  run would_trigger_sync "$SOURCE_DIR" ".claude/agents/custom-agent.md"
-  assert_success
-}
-
-@test "3. agent-flow command files match glob" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/build.md"
-  assert_success
-}
-
-@test "4. command files in .claude/commands/ match (build, plan, review, rebase, token-analyser)" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/build.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/plan.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/review.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/rebase.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/token-analyser.md"
-  assert_success
-}
-
-@test "5. .claude/commands/ files DO match" {
-  write_production_manifest
   touch "$SOURCE_DIR/.claude/commands/my-custom-cmd.md"
-  run would_trigger_sync "$SOURCE_DIR" ".claude/commands/my-custom-cmd.md"
-  assert_success
+  local should_match=(
+    ".claude/agents/frontend.md"
+    ".claude/agents/backend.md"
+    ".claude/agents/custom-agent.md"
+    ".claude/commands/build.md"
+    ".claude/commands/plan.md"
+    ".claude/commands/review.md"
+    ".claude/commands/rebase.md"
+    ".claude/commands/token-analyser.md"
+    ".claude/commands/my-custom-cmd.md"
+  )
+  local f
+  for f in "${should_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_success || { echo "FAIL: $f should trigger sync but did not" >&2; return 1; }
+  done
 }
 
-@test "6. agent-flow skill directories match glob" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/skills/ways-of-working"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude/skills/ways-of-working/SKILL.md"
-  assert_success
-}
-
-@test "7. .claude/skills/ dirs DO match managed_files" {
+@test "2. skill directories match glob (list-driven)" {
   write_production_manifest
   mkdir -p "$SOURCE_DIR/.claude/skills/my-custom-skill"
-  run would_trigger_sync "$SOURCE_DIR" ".claude/skills/my-custom-skill"
-  assert_success
+  local should_match=(
+    ".claude/skills/ways-of-working"
+    ".claude/skills/ways-of-working/SKILL.md"
+    ".claude/skills/my-custom-skill"
+  )
+  local f
+  for f in "${should_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_success || { echo "FAIL: $f should trigger sync but did not" >&2; return 1; }
+  done
 }
 
-@test "8. .claude-plugin/ directory contents match" {
+@test "3. plugin, mcp.json, and bin files match (list-driven)" {
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude-plugin/plugin.json"
-  assert_success
+  local should_match=(
+    ".claude-plugin/plugin.json"
+    ".mcp.json"
+    ".claude-agent-flow/bin/mergiraf-linux.tar.gz"
+    ".claude-agent-flow/scripts/repo-sync-files.sh"
+    ".claude-agent-flow/repo-sync-manifest.yml"
+    ".claude-agent-flow/tests/test_helper.bash"
+  )
+  local f
+  for f in "${should_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_success || { echo "FAIL: $f should trigger sync but did not" >&2; return 1; }
+  done
 }
 
-@test "9. .mcp.json matches managed_files" {
+@test "4. workflow files match glob; agent-flow-tests.yml matches via explicit entry" {
+  # Note: agent-flow-tests.yml uses plural 'tests' so it does NOT match agent-flow-*.yml glob,
+  # but IS explicitly listed as a separate managed_files entry.
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".mcp.json"
-  assert_success
+  local should_match=(
+    ".github/workflows/agent-flow-downstream.yml"
+    ".github/workflows/agent-flow-upstream.yml"
+    ".github/workflows/agent-flow-tests.yml"
+  )
+  local f
+  for f in "${should_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_success || { echo "FAIL: $f should trigger sync but did not" >&2; return 1; }
+  done
 }
 
-@test "10. mergiraf binary glob matches" {
+@test "5. non-agent-flow workflow files do NOT match (list-driven)" {
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude-agent-flow/bin/mergiraf-linux.tar.gz"
-  assert_success
-}
-
-@test "11. .claude-agent-flow/ directory contents match" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude-agent-flow/scripts/repo-sync-files.sh"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude-agent-flow/repo-sync-manifest.yml"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude-agent-flow/tests/test_helper.bash"
-  assert_success
-}
-
-@test "12. agent-flow workflow files match glob" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".github/workflows/agent-flow-downstream.yml"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".github/workflows/agent-flow-upstream.yml"
-  assert_success
-}
-
-@test "12b. agent-flow-tests.yml matches via explicit manifest entry" {
-  # agent-flow-tests.yml uses plural 'teams' so doesn't match agent-flow-*.yml glob
-  # but it IS explicitly listed in the manifest as a separate managed_files entry
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".github/workflows/agent-flow-tests.yml"
-  assert_success
-}
-
-@test "13. non-agent-flow workflow does NOT match" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".github/workflows/ci.yml"
-  assert_failure
-  run would_trigger_sync "$SOURCE_DIR" ".github/workflows/deploy.yml"
-  assert_failure
+  local should_not_match=(
+    ".github/workflows/ci.yml"
+    ".github/workflows/deploy.yml"
+  )
+  local f
+  for f in "${should_not_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_failure || { echo "FAIL: $f should NOT trigger sync but did" >&2; return 1; }
+  done
 }
 
 # ── SECTION 2: Merge files path matching ────────────────────────────────────
 
-@test "14. merge_files paths are included in managed paths" {
+@test "6. merge_files paths are included in managed paths (list-driven)" {
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/settings.json"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" "CLAUDE.md"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".gitignore"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".gitattributes"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" "backlog/config.yml"
-  assert_success
-  run would_trigger_sync "$SOURCE_DIR" ".claude-agent-flow/hooks/session-start.sh"
-  assert_success
+  local should_match=(
+    ".claude/settings.json"
+    "CLAUDE.md"
+    ".gitignore"
+    ".gitattributes"
+    "backlog/config.yml"
+    ".claude-agent-flow/hooks/session-start.sh"
+  )
+  local f
+  for f in "${should_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_success || { echo "FAIL: $f should trigger sync but did not" >&2; return 1; }
+  done
 }
 
-# ── SECTION 3: Negative cases — files that must NOT trigger sync ────────────
+# ── SECTION 3: Negative cases — files that must NOT trigger sync (list-driven)
 
-@test "15. README.md does NOT trigger sync" {
+@test "7. application code and config files do NOT trigger sync (list-driven)" {
   write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" "README.md"
-  assert_failure
-}
-
-@test "16. src/ application code does NOT trigger sync" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" "src/index.ts"
-  assert_failure
-  run would_trigger_sync "$SOURCE_DIR" "src/components/App.tsx"
-  assert_failure
-}
-
-@test "17. package.json does NOT trigger sync" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" "package.json"
-  assert_failure
-}
-
-@test "18. random top-level files do NOT trigger sync" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" "tsconfig.json"
-  assert_failure
-  run would_trigger_sync "$SOURCE_DIR" ".eslintrc.js"
-  assert_failure
-}
-
-@test "19. .claude/settings.local.json does NOT trigger sync" {
-  write_production_manifest
-  run would_trigger_sync "$SOURCE_DIR" ".claude/settings.local.json"
-  assert_failure
+  local should_not_match=(
+    "README.md"
+    "src/index.ts"
+    "src/components/App.tsx"
+    "package.json"
+    "tsconfig.json"
+    ".eslintrc.js"
+    ".claude/settings.local.json"
+  )
+  local f
+  for f in "${should_not_match[@]}"; do
+    run would_trigger_sync "$SOURCE_DIR" "$f"
+    assert_failure || { echo "FAIL: $f should NOT trigger sync but did" >&2; return 1; }
+  done
 }
 
 # ── SECTION 4: Edge cases ───────────────────────────────────────────────────
 
-@test "20. empty manifest returns no managed paths" {
+@test "8. empty manifest returns no managed paths" {
   cat > "$SOURCE_DIR/.claude-agent-flow/repo-sync-manifest.yml" << 'EOF'
 version: 1
 source_repo: org/source
@@ -305,7 +263,7 @@ EOF
   [[ -z "$result" ]]
 }
 
-@test "21. manifest with only merge_files still detects those paths" {
+@test "9. manifest with only merge_files still detects those paths" {
   cat > "$SOURCE_DIR/.claude-agent-flow/repo-sync-manifest.yml" << 'EOF'
 version: 1
 source_repo: org/source
@@ -319,7 +277,7 @@ EOF
   assert_success
 }
 
-@test "22. glob that matches nothing still keeps literal pattern" {
+@test "10. glob that matches nothing still keeps literal pattern" {
   cat > "$SOURCE_DIR/.claude-agent-flow/repo-sync-manifest.yml" << 'EOF'
 version: 1
 source_repo: org/source
@@ -333,7 +291,7 @@ EOF
   [[ "$result" == *"nonexistent-pattern-*.xyz"* ]]
 }
 
-@test "23. downstream detection includes both managed_files and merge_files" {
+@test "11. downstream detection includes both managed_files and merge_files" {
   write_production_manifest
   result=$(extract_managed_paths "$SOURCE_DIR")
   # Should have both glob-expanded managed files AND merge file paths

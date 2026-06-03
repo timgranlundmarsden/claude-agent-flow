@@ -252,9 +252,7 @@
       padding: 2px 7px; border-radius: 4px; color: rgba(255,255,255,.85);
       white-space: nowrap; flex-shrink: 0; margin-top: 1px;
     }
-    .badge.orchestrator { background: #3a2060; }
     .badge.explorer { background: #1a3050; }
-    .badge.architect { background: #0a3a20; }
     .badge.builder { background: #3a2000; }
     .badge.critic { background: #3a0000; }
     .ctext code { color: rgba(255,255,255,.55); }
@@ -418,7 +416,7 @@
           <a href="visualiser.html?logid=build-console-simulator" class="showcase-card" style="--i:1">
             <span class="card-tag feature">Feature build</span>
             <h3 class="card-title">Console Visualiser</h3>
-            <p class="card-desc">Full /build run for the session replay visualiser — plan, architect, build, adversarial loop, tester, reviewer, author in one shot.</p>
+            <p class="card-desc">Full /build run for the session replay visualiser — plan, build, adversarial critic loop, test, review, and documentation in one shot.</p>
             <span class="card-cta">View session →</span>
           </a>
 
@@ -450,10 +448,9 @@
             <span class="console-label">agent-flow — build session</span>
           </div>
           <div class="console-lines" id="consoleLinesShowcase">
-            <div class="cline"><span class="badge orchestrator">ORCHESTRATOR</span><span class="ctext">Received brief: <code>/build @plans/2026-04-06-2012-agent-flow-demo-visualiser.md</code></span></div>
             <div class="cline"><span class="badge explorer">EXPLORER</span><span class="ctext">Scanning codebase — mapping <code>docs/public/</code>, <code>.claude/agents/</code>, existing HTML patterns…</span></div>
-            <div class="cline"><span class="badge architect">ARCHITECT</span><span class="ctext">Design complete. Single-file visualiser with embedded JS — no external deps, vanilla playback engine.</span></div>
-            <div class="cline"><span class="badge builder">BUILDER</span><span class="ctext">Writing <code>visualiser.html</code> — console panel, flow diagram, playback controls, mobile layout…</span></div>
+            <div class="cline"><span class="badge builder">BUILDER</span><span class="ctext">Design complete. Writing <code>visualiser.html</code> — console panel, flow diagram, playback controls…</span></div>
+            <div class="cline"><span class="badge builder">BUILDER</span><span class="ctext">Single-file visualiser with embedded JS — no external deps, vanilla playback engine. Mobile layout complete.</span></div>
             <div class="cline"><span class="badge critic">CRITIC</span><span class="ctext">Reviewing implementation… <strong class="pass">PASS</strong> — playback engine correct, responsive layout verified, no regressions.</span></div>
           </div>
         </div>

@@ -137,6 +137,13 @@
                   transform 0.4s ease calc(var(--i,0)*80ms);
     }
     .pipeline-vertical.visible .node-card { opacity: 1; transform: none; }
+    .node-card.skill-role { border-style: dashed; background: rgba(0,113,227,.03); }
+    .skill-tag {
+      display: inline-block; font-size: 10px; border-radius: 4px;
+      background: rgba(0,0,0,.06); padding: 1px 6px;
+      color: var(--text-secondary); font-weight: 500;
+      letter-spacing: .02em; margin-top: 1px; align-self: flex-start;
+    }
     .node-card-top { display: flex; align-items: center; gap: 8px; }
     .node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .dot-opus   { background: var(--opus); }
@@ -429,13 +436,14 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#prepare" aria-label="Architect — go to Prepare phase">
-          <div class="node-card" style="--i:1">
+          <div class="node-card skill-role" style="--i:1">
             <div class="node-card-top">
               <span class="node-dot dot-opus" aria-hidden="true"></span>
               <span class="node-card-name">Architect</span>
               <span class="node-card-model opus">Opus</span>
             </div>
             <p class="node-card-desc">Design authority. File-level plans and trade-off decisions before implementation.</p>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -443,7 +451,7 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#build" aria-label="Storage — go to Build phase">
-          <div class="node-card" style="--i:2">
+          <div class="node-card skill-role" style="--i:2">
             <div class="node-card-top">
               <span class="node-dot dot-sonnet" aria-hidden="true"></span>
               <span class="node-card-name">Storage</span>
@@ -451,6 +459,7 @@
             </div>
             <p class="node-card-desc">Schema, migrations, RLS policies — runs before builders when needed.</p>
             <span class="optional-tag">if needed</span>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -458,13 +467,14 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#build" aria-label="Frontend / Backend — go to Build phase">
-          <div class="node-card" style="--i:3">
+          <div class="node-card skill-role" style="--i:3">
             <div class="node-card-top">
               <span class="node-dot dot-sonnet" aria-hidden="true"></span>
               <span class="node-card-name">Frontend / Backend</span>
               <span class="node-card-model sonnet">Sonnet</span>
             </div>
             <p class="node-card-desc">Builder agents execute the implementation plan. Run sequentially, fewest dependencies first.</p>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -523,13 +533,14 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#verify" aria-label="Tester — go to Verify phase">
-          <div class="node-card" style="--i:5">
+          <div class="node-card skill-role" style="--i:5">
             <div class="node-card-top">
               <span class="node-dot dot-sonnet" aria-hidden="true"></span>
               <span class="node-card-name">Tester</span>
               <span class="node-card-model sonnet">Sonnet</span>
             </div>
             <p class="node-card-desc">Runs full test suite; failures return to the adversarial loop.</p>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -537,13 +548,14 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#wrap-up" aria-label="Reviewer — go to Wrap up phase">
-          <div class="node-card" style="--i:6">
+          <div class="node-card skill-role" style="--i:6">
             <div class="node-card-top">
               <span class="node-dot dot-sonnet" aria-hidden="true"></span>
               <span class="node-card-name">Reviewer</span>
               <span class="node-card-model sonnet">Sonnet</span>
             </div>
             <p class="node-card-desc">Structured BLOCKER / WARNING / SUGGESTION findings. Read-only.</p>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -551,13 +563,14 @@
 
         <div class="node-wrapper" role="listitem">
           <a class="node-card-link" href="#wrap-up" aria-label="Author — go to Wrap up phase">
-          <div class="node-card" style="--i:7">
+          <div class="node-card skill-role" style="--i:7">
             <div class="node-card-top">
               <span class="node-dot dot-haiku" aria-hidden="true"></span>
               <span class="node-card-name">Author</span>
               <span class="node-card-model haiku">Haiku</span>
             </div>
             <p class="node-card-desc">Updates README, docstrings, and CHANGELOG after reviewer sign-off.</p>
+            <span class="skill-tag">skill</span>
           </div>
           </a>
         </div>
@@ -572,7 +585,7 @@
     <!-- Phase 0 — Resolve Input -->
     <div class="agent-group tier-neutral" id="resolve-input" aria-labelledby="phase-0-title">
       <div class="agent-group-header">
-        <span class="agent-group-name">Orchestrator</span>
+        <span class="agent-group-name">Resolve Input</span>
       </div>
       <div class="phase-header">
         <span class="phase-badge" aria-hidden="true">0</span>
@@ -632,7 +645,7 @@
 
       <div class="callout-box callout-blue" role="note">
         <span class="callout-icon" aria-hidden="true">&#9432;</span>
-        <span>The orchestrator presents a one-paragraph summary to the human before any code is written — a checkpoint to catch misunderstandings early. The architect may internally dispatch a researcher for technical validation, but if more research is needed, the orchestrator invokes one explicitly.</span>
+        <span>A one-paragraph summary is presented to the human before any code is written — a checkpoint to catch misunderstandings early. The architect may internally dispatch a researcher for technical validation, but if more research is needed, it is invoked explicitly.</span>
       </div>
 
       <div class="code-excerpt" role="region" aria-label="Foreground-only rule excerpt">
@@ -646,7 +659,7 @@ Agent tool call in this pipeline.
 
       <div class="callout-box callout-red" role="note">
         <span class="callout-icon" aria-hidden="true">&#9888;</span>
-        <span>Background execution is banned across the entire /build pipeline. If an agent stalls for more than 10 minutes, the orchestrator cancels and retries with a skeleton-first, section-by-section approach.</span>
+        <span>Background execution is banned across the entire /build pipeline. If an agent stalls for more than 10 minutes, the pipeline cancels and retries with a skeleton-first, section-by-section approach.</span>
       </div>
     </div>
 
@@ -683,7 +696,7 @@ under **Skills:** using the Skill tool."</span></pre>
 
       <div class="callout-box callout-purple" role="note">
         <span class="callout-icon" aria-hidden="true">&#10024;</span>
-        <span>Storage always runs before builders to ensure schema changes are in place. Skills directives propagate from the plan file through the orchestrator into each builder's instructions — the builder doesn't need to know about the plan, just the skills it must load.</span>
+        <span>Storage always runs before builders to ensure schema changes are in place. Skills directives propagate from the plan file into each builder's instructions — the builder doesn't need to know about the plan, just the skills it must load.</span>
       </div>
 
       <div class="code-excerpt" role="region" aria-label="Frontend design quality bar excerpt">
@@ -699,7 +712,7 @@ deliverable, your instructions MUST include:
 
       <div class="callout-box callout-blue" role="note">
         <span class="callout-icon" aria-hidden="true">&#9432;</span>
-        <span>The frontend agent has the frontend-design skill preloaded. The orchestrator's instructions reinforce the quality bar — distinctive output is a requirement, not a suggestion.</span>
+        <span>The frontend agent has the frontend-design skill preloaded. The builder's instructions reinforce the quality bar — distinctive output is a requirement, not a suggestion.</span>
       </div>
     </div>
 
@@ -766,7 +779,7 @@ implementation issue.</span></pre>
 
       <div class="callout-box callout-red" role="note">
         <span class="callout-icon" aria-hidden="true">&#9888;</span>
-        <span>Three iterations is the hard limit. If the critic still fails after three rounds, the orchestrator stops and sets the task to Blocked. The reasoning: repeated failures usually indicate a design flaw that more code can't fix.</span>
+        <span>Three iterations is the hard limit. If the critic still fails after three rounds, the pipeline stops and sets the task to Blocked. The reasoning: repeated failures usually indicate a design flaw that more code can't fix.</span>
       </div>
     </div>
 
@@ -838,7 +851,7 @@ implementation issue.</span></pre>
     <!-- Phase 6 — Report -->
     <div class="agent-group tier-neutral" id="report" aria-labelledby="phase-6-title">
       <div class="agent-group-header">
-        <span class="agent-group-name">Orchestrator</span>
+        <span class="agent-group-name">Report</span>
       </div>
       <div class="phase-header">
         <span class="phase-badge" aria-hidden="true">6</span>

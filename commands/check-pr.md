@@ -7,6 +7,11 @@ description: >
 
 **Skills:** agent-flow-init-check
 
+**Git guard:**
+```bash
+bash .claude-agent-flow/scripts/ensure-feature-branch.sh || { echo "The /check-pr command requires a git repository." && exit 1; }
+```
+
 $ARGUMENTS
 
 If `$ARGUMENTS` contains `--help` as a standalone word, output the following verbatim and STOP:

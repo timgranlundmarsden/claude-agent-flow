@@ -1,6 +1,11 @@
 #!/usr/bin/env bats
 # Tests for merge-settings-json.sh — ported from test-merge-settings.sh
 
+setup_file() {
+  load test_helper
+  make_template_repo
+}
+
 setup() {
   load test_helper
   setup_temp_dirs

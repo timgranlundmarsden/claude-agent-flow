@@ -83,10 +83,27 @@ echo "║       Agent Flow Installation Script         ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 
+# ── Capabilities detection ──
+detect_capabilities() {
+  CAP_GIT_BINARY=false
+  CAP_GIT_REPO=false
+  CAP_GH_CLI=false
+  if command -v git &>/dev/null; then
+    CAP_GIT_BINARY=true
+    if git rev-parse --is-inside-work-tree &>/dev/null; then
+      CAP_GIT_REPO=true
+    fi
+  fi
+  if command -v gh &>/dev/null; then
+    CAP_GH_CLI=true
+  fi
+}
+
 # ── Prerequisites ──
-if ! git rev-parse --is-inside-work-tree &>/dev/null; then
-  echo "Error: Not inside a git repository." >&2
-  exit 1
+detect_capabilities
+
+if [[ "$CAP_GIT_REPO" == false ]]; then
+  echo "Notice: Not inside a git repository. Agent-flow will run in local-only mode (no version control operations)."
 fi
 
 if ! command -v jq &>/dev/null; then
@@ -110,9 +127,17 @@ if [[ -z "$PROJECT_NAME" && "$UPDATE_MODE" == false ]]; then
   fi
 
   if [[ -z "$PROJECT_NAME" ]]; then
-    PROJECT_NAME="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)"
-    if [[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "/" ]]; then
-      echo "Using repo folder name as project: $PROJECT_NAME"
+    if [[ "$CAP_GIT_REPO" == true ]]; then
+      PROJECT_NAME="$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)"
+    fi
+    if [[ -z "$PROJECT_NAME" || "$PROJECT_NAME" == "/" || "$PROJECT_NAME" == "." ]]; then
+      PROJECT_NAME="$(basename "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null)"
+    fi
+    if [[ -z "$PROJECT_NAME" || "$PROJECT_NAME" == "/" || "$PROJECT_NAME" == "." ]]; then
+      PROJECT_NAME="$(basename "$(pwd)" 2>/dev/null)"
+    fi
+    if [[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "/" && "$PROJECT_NAME" != "." ]]; then
+      echo "Using folder name as project: $PROJECT_NAME"
     else
       echo ""
       read -rp "Enter project name: " PROJECT_NAME
@@ -705,7 +730,10 @@ jq -n \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg scope "$SCOPE" \
   --argjson auto_update "$AUTO_UPDATE" \
-  '{source_repo: $repo, last_synced_version: ($version | tonumber), source_commit: $commit, synced_at: $ts, scope: $scope, auto_update: $auto_update}' \
+  --argjson cap_git_binary "$CAP_GIT_BINARY" \
+  --argjson cap_git_repo "$CAP_GIT_REPO" \
+  --argjson cap_gh_cli "$CAP_GH_CLI" \
+  '{source_repo: $repo, last_synced_version: ($version | tonumber), source_commit: $commit, synced_at: $ts, scope: $scope, auto_update: $auto_update, capabilities: {git_binary: $cap_git_binary, git_repo: $cap_git_repo, gh_cli: $cap_gh_cli}}' \
   > "$TARGET_DIR/.claude-agent-flow/sync-state.json"
 echo ""
 echo "Initialized .claude-agent-flow/sync-state.json (version $MANIFEST_VERSION, scope: $SCOPE)"
@@ -739,11 +767,16 @@ echo ""
 echo "Installed scope: $SCOPE"
 echo ""
 echo "Next steps:"
-echo "  1. Review the changes: git diff"
-echo "  2. Commit: git add -A && git commit -m 'feat: install agent-flow system'"
-if [[ "$SCOPE" == "plugin+github" || "$SCOPE" == "sandbox" ]]; then
-  echo "  3. Set up AGENT_FLOW_SYNC_TOKEN secret in your repo for sync workflows"
+if [[ "$CAP_GIT_REPO" == true ]]; then
+  echo "  1. Review the changes: git diff"
+  echo "  2. Commit: git add -A && git commit -m 'feat: install agent-flow system'"
+  if [[ "$SCOPE" == "plugin+github" || "$SCOPE" == "sandbox" ]]; then
+    echo "  3. Set up AGENT_FLOW_SYNC_TOKEN secret in your repo for sync workflows"
+  else
+    echo "  3. To add GitHub Actions later, re-run with: --scope plugin+github"
+  fi
 else
-  echo "  3. To add GitHub Actions later, re-run with: --scope plugin+github"
+  echo "  1. Agent-flow is installed. Start using Claude Code in this directory."
+  echo "  Note: Running without git — version control operations are skipped."
 fi
 echo ""

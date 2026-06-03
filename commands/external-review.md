@@ -7,6 +7,11 @@ description: >
 
 **Skills:** agent-flow-init-check
 
+**Git guard:**
+```bash
+bash .claude-agent-flow/scripts/ensure-feature-branch.sh || { echo "The /external-review command requires a git repository." && exit 1; }
+```
+
 $ARGUMENTS
 
 If `$ARGUMENTS` is empty/whitespace, or contains `--help` as a standalone word, output the following verbatim and STOP:
@@ -34,7 +39,8 @@ Run a single external code review on the current branch diff vs main.
 ### Step 1 — Generate diff
 
 ```bash
-MERGE_BASE=$(git merge-base HEAD main 2>&1 || git merge-base HEAD master 2>&1)
+git fetch origin main --quiet 2>/dev/null || true
+MERGE_BASE=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null || git rev-list --max-parents=0 HEAD 2>/dev/null)
 git diff "$MERGE_BASE"...HEAD > /tmp/external-review-diff.txt
 ```
 

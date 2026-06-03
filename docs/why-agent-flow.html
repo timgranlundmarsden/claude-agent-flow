@@ -323,9 +323,9 @@
       <div class="pillar pillar-02">
         <p class="pillar-num">Philosophy 02</p>
         <h2>Specialisation beats generalism</h2>
-        <p class="pillar-body">A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Twelve agents each own exactly one part of the problem — clean context, no role confusion.</p>
+        <p class="pillar-body">A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Specialised agents and skill-backed roles each own exactly one part of the problem — clean context, no role confusion.</p>
         <div class="pillar-tags">
-          <span class="ptag">12 specialists</span>
+          <span class="ptag">3 agents + skills</span>
           <span class="ptag">clean context</span>
           <span class="ptag">role clarity</span>
         </div>
@@ -539,28 +539,14 @@
         <div class="phil-stripe-bar blue" aria-hidden="true"></div>
         <span class="phil-stripe-label blue">Philosophy 02 · The Solution</span>
       </div>
-      <h2 class="section-title" id="roster-title">12 Agents, Each With One Job</h2>
-      <p class="section-lead">Every agent has a single domain, a single model tier, and a single place in the sequence. No agent makes decisions outside its scope.</p>
+      <h2 class="section-title" id="roster-title">3 Agents + Domain Skills</h2>
+      <p class="section-lead">Three specialised agents handle exploration, adversarial review, and research. Domain skills handle implementation, testing, documentation, and design — loaded by the parent pipeline as needed.</p>
       <div class="roster-grid">
         <div class="roster-item">
-          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
+          <div class="model-dot dot-haiku" role="img" aria-label="Haiku tier"></div>
           <div class="roster-text">
-            <div class="roster-name">orchestrator</div>
-            <div class="roster-role">Routes and sequences, never writes code</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">architect</div>
-            <div class="roster-role">Design decisions, pre-implementation</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">ideator</div>
-            <div class="roster-role">Lateral thinking, output to human only</div>
+            <div class="roster-name">explorer</div>
+            <div class="roster-role">Read-only codebase navigator</div>
           </div>
         </div>
         <div class="roster-item">
@@ -572,68 +558,19 @@
           </div>
         </div>
         <div class="roster-item">
-          <div class="model-dot dot-opus" role="img" aria-label="Opus tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">reviewer</div>
-            <div class="roster-role">Final quality pass — security, correctness, perf</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">frontend</div>
-            <div class="roster-role">UI components, styling, client-side state</div>
-            <div class="roster-badges"><span class="roster-badge">🌐 Playwright</span></div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">backend</div>
-            <div class="roster-role">API routes, business logic, data persistence, auth</div>
-          </div>
-        </div>
-        <div class="roster-item">
           <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
           <div class="roster-text">
             <div class="roster-name">researcher</div>
             <div class="roster-role">Live docs lookup, library comparison</div>
           </div>
         </div>
-        <div class="roster-item">
-          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">explorer</div>
-            <div class="roster-role">Read-only codebase navigator</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">tester</div>
-            <div class="roster-role">Tests only — never marks done if tests are red</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-haiku" role="img" aria-label="Haiku tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">author</div>
-            <div class="roster-role">Docs and CHANGELOG</div>
-          </div>
-        </div>
-        <div class="roster-item">
-          <div class="model-dot dot-sonnet" role="img" aria-label="Sonnet tier"></div>
-          <div class="roster-text">
-            <div class="roster-name">storage</div>
-            <div class="roster-role">DB schema, RLS policies, cloud storage</div>
-          </div>
-        </div>
       </div>
       <div class="roster-legend">
-        <div class="roster-legend-item"><span class="model-dot dot-opus"></span> Opus 4</div>
-        <div class="roster-legend-item"><span class="model-dot dot-sonnet"></span> Sonnet 4.5</div>
-        <div class="roster-legend-item"><span class="model-dot dot-haiku"></span> Haiku 4.5</div>
+        <div class="roster-legend-item"><span class="model-dot dot-opus"></span> Opus · Deep reasoning</div>
+        <div class="roster-legend-item"><span class="model-dot dot-sonnet"></span> Sonnet · Balanced</div>
+        <div class="roster-legend-item"><span class="model-dot dot-haiku"></span> Haiku · Fast &amp; efficient</div>
       </div>
+      <p class="section-lead" style="margin-top:24px;font-size:14px;">Domain skills — loaded by the pipeline as needed: <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">frontend-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">backend-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">storage-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">testing-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">review-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">author-rules</code>, <code style="font-family:var(--mono);background:var(--surface-alt);padding:2px 5px;border-radius:4px;font-size:0.9em;">critic-rules</code>, and more.</p>
     </section>
 
     <!-- ── SEE IT IN PRACTICE ───────────────────────────────────── -->

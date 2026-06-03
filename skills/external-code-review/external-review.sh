@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # external-review.sh — Make an external LLM API call for code review
-# Usage: external-review.sh --diff-file <path> [--system-prompt <path>] [--user-prompt <path>] [--repo-name <name>] [--response-file <path>]
+# Usage: external-review.sh --diff-file <path> [--plan-mode] [--system-prompt <path>] [--user-prompt <path>] [--repo-name <name>] [--response-file <path>]
 #
 # Required env vars:
 #   EXTERNAL_REVIEW_API_KEY       — API key for the external review LLM provider
@@ -32,6 +32,7 @@ USER_PROMPT_FILE=""
 REPO_NAME=""
 RESPONSE_FILE=""
 SUPPRESS_CONFIGS=()
+PLAN_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,9 +60,13 @@ while [[ $# -gt 0 ]]; do
       SUPPRESS_CONFIGS+=("${2:-}")
       shift 2
       ;;
+    --plan-mode)
+      PLAN_MODE=true
+      shift 1
+      ;;
     *)
       echo "ERROR: Unknown argument: $1" >&2
-      echo "Usage: $0 --diff-file <path> [--system-prompt <path>] [--user-prompt <path>] [--repo-name <name>] [--response-file <path>] [--suppress-config <path>]..." >&2
+      echo "Usage: $0 --diff-file <path> [--plan-mode] [--system-prompt <path>] [--user-prompt <path>] [--repo-name <name>] [--response-file <path>] [--suppress-config <path>]..." >&2
       exit 1
       ;;
   esac
@@ -88,7 +93,11 @@ if [[ -z "$SYSTEM_PROMPT_FILE" ]]; then
     echo "ERROR: could not determine git root to find default system prompt ($(cat "$TMP_DIR/git-err.txt"))" >&2
     exit 1
   fi
-  SYSTEM_PROMPT_FILE="$GIT_ROOT/.claude/skills/external-code-review/external-review-system-prompt.md"
+  if [[ "$PLAN_MODE" == "true" ]]; then
+    SYSTEM_PROMPT_FILE="$GIT_ROOT/.claude/skills/external-code-review/plan-review-system-prompt.md"
+  else
+    SYSTEM_PROMPT_FILE="$GIT_ROOT/.claude/skills/external-code-review/external-review-system-prompt.md"
+  fi
 fi
 
 if [[ ! -f "$SYSTEM_PROMPT_FILE" ]]; then
@@ -132,6 +141,13 @@ if [[ -z "${EXTERNAL_REVIEW_API_BASE_URL:-}" ]]; then
   exit 1
 fi
 
+# Resolve model — plan mode can override with AGENT_FLOW_PLAN_REVIEW_MODEL
+if [[ "$PLAN_MODE" == "true" ]]; then
+  MODEL="${AGENT_FLOW_PLAN_REVIEW_MODEL:-$EXTERNAL_REVIEW_MODEL}"
+else
+  MODEL="$EXTERNAL_REVIEW_MODEL"
+fi
+
 # ---------------------------------------------------------------------------
 # SECTION 5: Build user prompt
 # ---------------------------------------------------------------------------
@@ -149,11 +165,19 @@ else
   # to preserve exact diff bytes (avoids trailing-newline stripping in $(...))
   CONSTRUCTED_USER_PROMPT_FILE="$TMP_DIR/user-prompt.txt"
 
-  {
-    printf 'Review this code diff.\n\nDiff:\n```diff\n'
-    cat "$DIFF_FILE"
-    printf '\n```\n\nInstructions: Respond with JSON only matching this schema (no markdown fences): {"verdict":"PASS|WARN|FAIL","summary":"<summary>","concerns":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]}. verdict: PASS=no issues, WARN=minor issues non-blocking, FAIL=must fix before merge. IMPORTANT: every concern MUST include a line number from the NEW file version (the + side of the diff). Look at the @@ hunk headers to determine line numbers — the +N in @@ -X,Y +N,M @@ is the starting line, then count forward through non-minus lines. Never use null for line — always provide the specific line number where the issue occurs.'
-  } > "$CONSTRUCTED_USER_PROMPT_FILE"
+  if [[ "$PLAN_MODE" == "true" ]]; then
+    {
+      printf 'Review this design plan for coherence, gaps, contradictions, and unstated assumptions.\n\nPlan:\n```markdown\n'
+      cat "$DIFF_FILE"
+      printf '\n```\n\nInstructions: Respond with JSON only matching this schema (no markdown fences): {"verdict":"PASS|WARN|FAIL","summary":"<summary>","concerns":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]}. verdict: PASS=no blocking concerns (SOUND), WARN=suggestions only, FAIL=blocking concerns requiring plan revision (NEEDS_REVISION). severity: error=CONCERN (blocking), warning=SUGGESTION, info=QUESTION. For section-level concerns not tied to a specific line, use line: 0. file should identify the plan section or "plan" if section-level.'
+    } > "$CONSTRUCTED_USER_PROMPT_FILE"
+  else
+    {
+      printf 'Review this code diff.\n\nDiff:\n```diff\n'
+      cat "$DIFF_FILE"
+      printf '\n```\n\nInstructions: Respond with JSON only matching this schema (no markdown fences): {"verdict":"PASS|WARN|FAIL","summary":"<summary>","concerns":[{"file":"<path>","line":<n>,"severity":"error|warning|info","message":"<text>"}]}. verdict: PASS=no issues, WARN=minor issues non-blocking, FAIL=must fix before merge. IMPORTANT: every concern MUST include a line number from the NEW file version (the + side of the diff). Look at the @@ hunk headers to determine line numbers — the +N in @@ -X,Y +N,M @@ is the starting line, then count forward through non-minus lines. Never use null for line — always provide the specific line number where the issue occurs.'
+    } > "$CONSTRUCTED_USER_PROMPT_FILE"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -192,7 +216,7 @@ fi
 # ---------------------------------------------------------------------------
 
 jq -n \
-  --arg model "$EXTERNAL_REVIEW_MODEL" \
+  --arg model "$MODEL" \
   --rawfile system_content "$SYSTEM_PROMPT_FILE" \
   --rawfile user_content "$CONSTRUCTED_USER_PROMPT_FILE" \
   '{
@@ -234,17 +258,34 @@ jq -n \
   }' > "$TMP_DIR/llm-request.json"
 
 # ---------------------------------------------------------------------------
-# SECTION 7: Call external review API
+# SECTION 7: Call external review API (with 503 retry, up to 3 attempts)
 # ---------------------------------------------------------------------------
 
-HTTP_CODE=$(curl -s -w "%{http_code}" -o "$TMP_DIR/llm-response.json" \
-  --max-time 120 --connect-timeout 10 \
-  -X POST "${EXTERNAL_REVIEW_API_BASE_URL}/chat/completions" \
-  -H "Authorization: Bearer $EXTERNAL_REVIEW_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "HTTP-Referer: https://github.com/${REPO_NAME:-unknown}" \
-  -d @"$TMP_DIR/llm-request.json" \
-  2>"$TMP_DIR/curl-err.txt")
+_retry_attempt=1
+_retry_delay=2
+> "$TMP_DIR/curl-err.txt"
+while true; do
+  HTTP_CODE=$(curl -s -w "%{http_code}" -o "$TMP_DIR/llm-response.json" \
+    --max-time 120 --connect-timeout 10 \
+    -X POST "${EXTERNAL_REVIEW_API_BASE_URL}/chat/completions" \
+    -H "Authorization: Bearer $EXTERNAL_REVIEW_API_KEY" \
+    -H "Content-Type: application/json" \
+    -H "HTTP-Referer: https://github.com/${REPO_NAME:-unknown}" \
+    -d @"$TMP_DIR/llm-request.json" \
+    2>>"$TMP_DIR/curl-err.txt") || true
+  if [[ "$HTTP_CODE" == "200" ]]; then
+    break
+  fi
+  if [[ "$HTTP_CODE" == "503" ]] && [[ "$_retry_attempt" -lt 3 ]]; then
+    echo "WARNING: HTTP 503 received, retrying (attempt ${_retry_attempt}/3) after ${_retry_delay}s..." >&2
+    sleep "$_retry_delay"
+    _retry_delay=$(( _retry_delay * 2 ))
+    _retry_attempt=$(( _retry_attempt + 1 ))
+    continue
+  fi
+  break
+done
+unset _retry_attempt _retry_delay
 
 if [[ "$HTTP_CODE" != "200" ]]; then
   echo "ERROR: External review API returned HTTP $HTTP_CODE" >&2

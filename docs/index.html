@@ -4,16 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Agent Flow</title>
-  <meta name="description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta name="description" content="Claude Agent Flow — adversarial review loops, domain skills, and a 3-agent pipeline that plans, builds, and ships production code in one command.">
   <meta property="og:title" content="Claude Agent Flow">
-  <meta property="og:description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta property="og:description" content="Claude Agent Flow — adversarial review loops, domain skills, and a 3-agent pipeline that plans, builds, and ships production code in one command.">
   <meta property="og:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
   <meta property="og:url" content="https://timgranlundmarsden.github.io/claude-agent-flow/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Claude Agent Flow">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Claude Agent Flow">
-  <meta name="twitter:description" content="Multi-agent orchestration for Claude Code. 12 specialized AI agents plan, build, review, and ship production code in one command.">
+  <meta name="twitter:description" content="Claude Agent Flow — adversarial review loops, domain skills, and a 3-agent pipeline that plans, builds, and ships production code in one command.">
   <meta name="twitter:image" content="https://timgranlundmarsden.github.io/claude-agent-flow/img/og-image-v2.png">
   <link rel="canonical" href="https://timgranlundmarsden.github.io/claude-agent-flow/">
   <style>
@@ -301,9 +301,7 @@
       padding: 2px 7px; border-radius: 4px; color: rgba(255,255,255,.85);
       white-space: nowrap; flex-shrink: 0; margin-top: 1px;
     }
-    .badge.orchestrator { background: #3a2060; }
     .badge.explorer { background: #1a3050; }
-    .badge.architect { background: #0a3a20; }
     .badge.builder { background: #3a2000; }
     .badge.critic { background: #3a0000; }
     .ctext {
@@ -438,6 +436,8 @@
     .cap-tag { font-size: 10px; color: var(--text-secondary); background: var(--surface-alt); border-radius: 20px; padding: 2px 7px; font-weight: 500; letter-spacing: .02em; }
     a.node-card-link { text-decoration: none; color: inherit; display: block; width: 100%; }
     a.node-card-link:hover .node-card { border-color: var(--blue); box-shadow: 0 1px 3px rgba(0,113,227,.12), 0 0 0 1px rgba(0,113,227,.15); }
+    .node-card.skill-role { border-style: dashed; background: rgba(0,113,227,.03); }
+    .skill-tag { display: inline-block; font-size: 10px; border-radius: 4px; background: rgba(0,0,0,.06); padding: 1px 6px; color: var(--text-secondary); font-weight: 500; letter-spacing: .02em; margin-top: 1px; align-self: flex-start; }
     .adv-loop {
       width: 100%; border: 2px dashed var(--fail); border-radius: var(--radius-md);
       padding: 14px 14px 10px;
@@ -461,10 +461,20 @@
     @media (max-width: 768px) { .pipeline-grid { grid-template-columns: 1fr; } }
 
     /* ── AGENT ROSTER ─────────────────────────────────────────── */
-    .roster-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
+    .roster-agents {
+      display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 16px; margin-bottom: 28px;
     }
+    .roster-skills-section { margin-bottom: 8px; }
+    .roster-skills-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 12px; }
+    .roster-skills-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .skill-chip {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 12px;
+      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 3px;
+    }
+    .skill-chip-name { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--blue); }
+    .skill-chip-desc { font-size: 11px; color: var(--text-secondary); }
     .agent-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius-md); box-shadow: var(--shadow);
@@ -484,9 +494,8 @@
     .tier-legend { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
     .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-    @media (max-width: 1024px) { .roster-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 768px)  { .roster-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 480px)  { .roster-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px)  { .roster-agents { grid-template-columns: 1fr; } }
+    @media (max-width: 480px)  { .roster-agents { grid-template-columns: 1fr; } }
     @keyframes pulseFail { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
     @keyframes traceArrow { to { stroke-dashoffset: 0; } }
     @keyframes loopCycle { 0% { stroke-dashoffset: 200; } 50% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -200; } }
@@ -674,7 +683,7 @@
     <!-- Console Teaser -->
     <section class="console-section">
       <div class="page">
-          <p class="hero-intro">12 specialized AI agents. One command. Claude Agent Flow orchestrates planning, building, reviewing, and pushing to production code using Claude Code.</p>
+          <p class="hero-intro">Adversarial review loops. Domain skills. One command. Claude Agent Flow orchestrates planning, building, and shipping production code using Claude Code.</p>
         <div class="console-teaser" aria-label="Live console demo">
           <div class="console-title-bar">
             <div class="console-dots">
@@ -685,11 +694,10 @@
             <span class="console-label">agent-flow — build session</span>
           </div>
           <div class="console-lines" id="consoleLinesHome">
-            <div class="cline" data-i="0"><span class="badge orchestrator">ORCHESTRATOR</span><span class="ctext">Received brief: <code>/build @plans/demo.md</code></span></div>
-            <div class="cline" data-i="1"><span class="badge explorer">EXPLORER</span><span class="ctext">Scanning codebase — mapping <code>docs/</code>, <code>.claude/agents/</code>, patterns…</span></div>
-            <div class="cline" data-i="2"><span class="badge architect">ARCHITECT</span><span class="ctext">Design complete. Single-file with embedded JS — no deps.</span></div>
-            <div class="cline" data-i="3"><span class="badge builder">BUILDER</span><span class="ctext">Writing <code>visualiser.html</code> — console, flow diagram, controls…</span></div>
-            <div class="cline" data-i="4"><span class="badge critic">CRITIC</span><span class="ctext">Reviewing… <strong class="pass">PASS</strong> — engine correct, layout verified.</span></div>
+            <div class="cline" data-i="0"><span class="badge explorer">EXPLORER</span><span class="ctext">Spawned — mapping <code>docs/</code>, <code>.claude/agents/</code>, existing patterns…</span></div>
+            <div class="cline" data-i="1"><span class="badge builder">BUILDER</span><span class="ctext">Received brief: <code>/build @plans/demo.md</code> — starting implementation.</span></div>
+            <div class="cline" data-i="2"><span class="badge builder">BUILDER</span><span class="ctext">Writing <code>visualiser.html</code> — console, flow diagram, controls…</span></div>
+            <div class="cline" data-i="3"><span class="badge critic">CRITIC</span><span class="ctext">Reviewing… <strong class="pass">PASS</strong> — engine correct, layout verified.</span></div>
           </div>
         </div>
       </div>
@@ -707,25 +715,16 @@
             <div class="nodes">
               <div class="node-wrapper">
                 <a class="node-card-link" href="plan-pipeline.html">
-                <div class="node-card" style="--i:0">
-                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Ideator</span><span class="node-card-model opus">Opus</span></div>
-                  <p class="node-card-desc">Explores solution space and stress-tests approaches; output goes to the human, never builders.</p>
-                  <div class="cap-tags"><span class="cap-tag">🧠 Brainstorming Skill</span></div>
+                <div class="node-card skill-role" style="--i:0">
+                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Architect</span><span class="node-card-model opus">Opus</span></div>
+                  <p class="node-card-desc">File-level design decisions and implementation plans before any code is written.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="plan-pipeline.html">
                 <div class="node-card" style="--i:1">
-                  <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Architect</span><span class="node-card-model opus">Opus</span></div>
-                  <p class="node-card-desc">File-level design decisions and implementation plans before any code is written.</p>
-                  <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
-                </div></a>
-              </div>
-              <div class="node-wrapper"><div class="connector"></div></div>
-              <div class="node-wrapper">
-                <a class="node-card-link" href="plan-pipeline.html">
-                <div class="node-card" style="--i:2">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Researcher</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">Live documentation lookup, library comparison, and current best practices.</p>
                   <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
@@ -734,9 +733,10 @@
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="plan-pipeline.html">
-                <div class="node-card" style="--i:3">
+                <div class="node-card skill-role" style="--i:2">
                   <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
                   <p class="node-card-desc">Writes the plan document and backlog task for /build to consume.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
             </div>
@@ -757,35 +757,37 @@
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:1">
+                <div class="node-card skill-role" style="--i:1">
                   <div class="node-card-top"><span class="node-dot dot-opus"></span><span class="node-card-name">Architect</span><span class="node-card-model opus">Opus</span></div>
                   <p class="node-card-desc">Design authority. File-level plans and trade-off decisions before implementation.</p>
-                  <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:2">
+                <div class="node-card skill-role" style="--i:2">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Storage</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">Schema, migrations, RLS policies, and all data persistence concerns.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:3">
+                <div class="node-card skill-role" style="--i:3">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Frontend</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">React, TypeScript, Tailwind, browser APIs, and client-side state.</p>
-                  <div class="cap-tags"><span class="cap-tag">🎨 Frontend Design Skill</span><span class="cap-tag">🌐 Playwright</span></div>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:4">
+                <div class="node-card skill-role" style="--i:4">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Backend</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">API routes, business logic, auth, and all server-side concerns.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
@@ -824,27 +826,28 @@
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:6">
+                <div class="node-card skill-role" style="--i:6">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Tester</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">Writes and runs tests; never marks a task done if tests are red.</p>
-                  <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:7">
+                <div class="node-card skill-role" style="--i:7">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Reviewer</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">Structured BLOCKER / WARNING / SUGGESTION findings. Read-only.</p>
-                  <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="build-pipeline.html">
-                <div class="node-card" style="--i:8">
+                <div class="node-card skill-role" style="--i:8">
                   <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
                   <p class="node-card-desc">Updates README, docstrings, and CHANGELOG after reviewer sign-off.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
             </div>
@@ -906,17 +909,19 @@
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="review-pipeline.html">
-                <div class="node-card" style="--i:3">
+                <div class="node-card skill-role" style="--i:3">
                   <div class="node-card-top"><span class="node-dot dot-sonnet"></span><span class="node-card-name">Reviewer</span><span class="node-card-model sonnet">Sonnet</span></div>
                   <p class="node-card-desc">Structured BLOCKER / WARNING / SUGGESTION findings. Read-only.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
               <div class="node-wrapper"><div class="connector"></div></div>
               <div class="node-wrapper">
                 <a class="node-card-link" href="review-pipeline.html">
-                <div class="node-card" style="--i:4">
+                <div class="node-card skill-role" style="--i:4">
                   <div class="node-card-top"><span class="node-dot dot-haiku"></span><span class="node-card-name">Author</span><span class="node-card-model haiku">Haiku</span></div>
                   <p class="node-card-desc">Updates README, docstrings, and CHANGELOG after sign-off.</p>
+                  <span class="skill-tag">skill</span>
                 </div></a>
               </div>
             </div>
@@ -930,20 +935,20 @@
     <!-- Agent Roster -->
     <section class="roster-section" aria-labelledby="heading-roster">
       <div class="page">
-        <h2 class="section-heading" id="heading-roster">Agent Roster</h2>
-        <div class="roster-grid" id="roster-grid">
+        <h2 class="section-heading" id="heading-roster">Agents &amp; Domain Skills</h2>
+        <div class="roster-agents" id="roster-grid">
 
           <div class="agent-card" style="--i:0">
-            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Orchestrator</span></div>
-            <span class="pill opus">Opus</span>
-            <p class="card-desc">Master coordinator. Breaks work into subtasks and delegates to specialists; never writes code itself.</p>
+            <div class="card-top"><span class="card-dot dot-haiku"></span><span class="card-name">Explorer</span></div>
+            <span class="pill haiku">Haiku</span>
+            <p class="card-desc">Codebase navigator. Fast, read-only mapping of files, dependencies, and patterns before any task begins.</p>
           </div>
 
           <div class="agent-card" style="--i:1">
-            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Ideator</span></div>
+            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Critic</span></div>
             <span class="pill opus">Opus</span>
-            <p class="card-desc">Lateral thinker. Explores solution space and stress-tests approaches; output goes to the human, never directly to builders.</p>
-            <div class="cap-tags"><span class="cap-tag">🧠 Brainstorming Skill</span></div>
+            <p class="card-desc">Adversarial reviewer. Actively tries to break code with edge cases; returns FAIL with specifics or PASS when solid.</p>
+            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
           </div>
 
           <div class="agent-card" style="--i:2">
@@ -953,70 +958,23 @@
             <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
           </div>
 
-          <div class="agent-card" style="--i:3">
-            <div class="card-top"><span class="card-dot dot-haiku"></span><span class="card-name">Explorer</span></div>
-            <span class="pill haiku">Haiku</span>
-            <p class="card-desc">Codebase navigator. Fast, cheap mapping of files, dependencies, and patterns before any task begins.</p>
-          </div>
-
-          <div class="agent-card" style="--i:4">
-            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Architect</span></div>
-            <span class="pill opus">Opus</span>
-            <p class="card-desc">Design authority. Produces written design decisions and file-level plans before any implementation begins.</p>
-            <div class="cap-tags"><span class="cap-tag">⌕ WebSearch</span></div>
-          </div>
-
-          <div class="agent-card" style="--i:5">
-            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Storage</span></div>
-            <span class="pill sonnet">Sonnet</span>
-            <p class="card-desc">Data persistence specialist. Sole owner of RLS policies; covers Postgres, Supabase, S3, and local filesystem.</p>
-          </div>
-
-          <div class="agent-card" style="--i:6">
-            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Frontend</span></div>
-            <span class="pill sonnet">Sonnet</span>
-            <p class="card-desc">UI specialist. Owns React, TypeScript, Tailwind, browser APIs, accessibility, and client-side state.</p>
-            <div class="cap-tags"><span class="cap-tag">🎨 Frontend Design Skill</span><span class="cap-tag">🌐 Playwright</span></div>
-          </div>
-
-          <div class="agent-card" style="--i:7">
-            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Backend</span></div>
-            <span class="pill sonnet">Sonnet</span>
-            <p class="card-desc">Server specialist. Owns API routes, business logic, database queries, auth, and all server-side concerns.</p>
-          </div>
-
-          <div class="agent-card" style="--i:8">
-            <div class="card-top"><span class="card-dot dot-opus"></span><span class="card-name">Critic</span></div>
-            <span class="pill opus">Opus</span>
-            <p class="card-desc">Adversarial reviewer. Actively tries to break code with edge cases; returns FAIL with specifics or PASS when solid.</p>
-            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
-          </div>
-
-          <div class="agent-card" style="--i:9">
-            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Tester</span></div>
-            <span class="pill sonnet">Sonnet</span>
-            <p class="card-desc">Test specialist. Writes and runs tests; never marks a task done if tests are red.</p>
-            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
-          </div>
-
-          <div class="agent-card" style="--i:10">
-            <div class="card-top"><span class="card-dot dot-sonnet"></span><span class="card-name">Reviewer</span></div>
-            <span class="pill sonnet">Sonnet</span>
-            <p class="card-desc">Standards checker. Read-only code review returning structured BLOCKER / WARNING / SUGGESTION findings.</p>
-            <div class="cap-tags"><span class="cap-tag">🌐 Playwright</span></div>
-          </div>
-
-          <div class="agent-card" style="--i:11">
-            <div class="card-top"><span class="card-dot dot-haiku"></span><span class="card-name">Author</span></div>
-            <span class="pill haiku">Haiku</span>
-            <p class="card-desc">Documentation specialist. Updates README, docstrings, CHANGELOG after reviewer sign-off.</p>
-          </div>
-
         </div>
         <div class="tier-legend">
           <div class="legend-item"><span class="legend-dot" style="background:var(--opus)"></span>Opus · Deep reasoning</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>Sonnet · Balanced</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--haiku)"></span>Haiku · Fast &amp; efficient</div>
+        </div>
+        <div class="roster-skills-section" style="margin-top:28px">
+          <p class="roster-skills-label">Domain Skills — loaded by the pipeline as needed</p>
+          <div class="roster-skills-chips">
+            <div class="skill-chip"><span class="skill-chip-name">frontend-rules</span><span class="skill-chip-desc">UI, CSS, client-side state</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">backend-rules</span><span class="skill-chip-desc">API routes, business logic, auth</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">storage-rules</span><span class="skill-chip-desc">Database schema &amp; RLS policies</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">testing-rules</span><span class="skill-chip-desc">Test creation &amp; execution</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">review-rules</span><span class="skill-chip-desc">BLOCKER / WARNING / SUGGESTION</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">author-rules</span><span class="skill-chip-desc">Docs &amp; changelog authoring</span></div>
+            <div class="skill-chip"><span class="skill-chip-name">critic-rules</span><span class="skill-chip-desc">Adversarial evaluation standards</span></div>
+          </div>
         </div>
       </div>
     </section>
@@ -1036,7 +994,7 @@
           <div class="block-card">
             <div class="block-icon">🤖</div>
             <h3 class="block-title">Agents</h3>
-            <p class="block-desc">Specialised AI agents, each with a focused role: Architect designs, Builder builds, Critic challenges, Reviewer approves</p>
+            <p class="block-desc">Three specialised agents (Explorer, Critic, Researcher) plus skill-backed pipeline roles — each with a focused mandate. The adversarial Critic challenges every change before it ships.</p>
           </div>
           <div class="block-card">
             <div class="block-icon">✨</div>
@@ -1060,7 +1018,7 @@
 │       ├── agent-flow-backlog-notify.yml   <span class="tier-haiku">← backlog notifications</span>
 │       └── agent-flow-review-pr.yml        <span class="tier-haiku">← AI PR review</span>
 ├── .claude/
-│   ├── agents/          <span class="tier-opus">← 12 agents</span>
+│   ├── agents/          <span class="tier-opus">← 3 agents</span>
 │   ├── commands/        <span class="tier-sonnet">← /build, /plan, /review…</span>
 │   └── skills/          <span class="tier-haiku">← skill modules</span>
 └── .claude-agent-flow/

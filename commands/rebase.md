@@ -8,6 +8,11 @@ description: >
 
 **Skills:** agent-flow-init-check
 
+**Git guard:**
+```bash
+bash .claude-agent-flow/scripts/ensure-feature-branch.sh || { echo "The /rebase command requires a git repository." && exit 1; }
+```
+
 Rebase the current branch onto the latest remote changes.
 
 If `$ARGUMENTS` is non-empty, use it as the target branch (e.g., `/rebase main` rebases onto `origin/main`).
