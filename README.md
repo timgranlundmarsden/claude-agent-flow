@@ -1,6 +1,6 @@
 # Claude Agent Flow
 
-A Claude Code plugin that brings a multi-agent development pipeline to your repository — adversarial review loops, 12 specialist agents, 14 slash commands, and 18 skills.
+A Claude Code plugin that brings a multi-agent development pipeline to your repository — adversarial review loops, 3 agents, 28 skills, and 14 slash commands.
 
 **[Full documentation →](https://timgranlundmarsden.github.io/claude-agent-flow/)** · **[Jump to installation ↓](#installation)**
 
@@ -19,7 +19,7 @@ I am a big Claude Code user and it supports so many great things so I thought wh
 
 But the big part was once it thought it was done, it would need to get the approval of multiple separate AI agents that would be very thorough and check it's work. "Works on mobile?", then prove it with screenshots! "Code looks good", then lets run all the tests. If anything breaks, send it back to the agent that did the work for correction. Only when the entire flow if complete and every agent is satisfied, is the job "Ready for Review"
 
-Today it's 12 specialised agents, a skill library, and a full CI/CD integration — built entirely by running itself. What began as a simple automation became a full on factory line capable of solving multiple tickets at once. When you couple it with Claude Code for Web you can literally have AI build your ideas whilst you are out and about. It gets rather addictive :-)
+Today it's 3 core agents, 28 skills, and a full CI/CD integration — built entirely by running itself. What began as a simple automation became a full on factory line capable of solving multiple tickets at once. When you couple it with Claude Code for Web you can literally have AI build your ideas whilst you are out and about. It gets rather addictive :-)
 
 ---
 
@@ -29,7 +29,7 @@ Two ideas drive everything in this project:
 
 **Quality emerges from adversarial loops.** A dedicated adversary that actively tries to break the code finds what a reviewer never sees. The critic's job is not to approve — it is to fail the work. The loop runs unattended until nothing breaks, compressing days of real-team code review into minutes. This is how you catch race conditions, silent failures, and injection vectors that slip past conventional review.
 
-**Specialisation beats generalism.** A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Twelve agents each own exactly one part of the problem — clean context, no role confusion. The frontend agent doesn't second-guess the API design; the critic doesn't have to stomach the implementation weight.
+**Specialisation beats generalism.** A single agent that must design, implement, test, and review the same work carries compounding bias. Separation of roles removes the tension between building and verifying. Specialised agents and skill-backed roles each own exactly one part of the problem — clean context, no role confusion. The Critic's sole mandate is to break the work; the Explorer maps without building; the Researcher validates without implementing.
 
 The full reasoning behind these choices is on the [Why Agent Flow](https://timgranlundmarsden.github.io/claude-agent-flow/why-agent-flow.html) page.
 
@@ -41,20 +41,20 @@ You describe what you want. The pipeline handles the rest.
 
 **`/plan`** — Socratic conversation that asks questions, explores approaches, produces a structured brief with acceptance criteria saved as a plan file in your repo.
 
-**`/build`** — Takes a plan file and runs the full agent sequence: explorer maps codebase, architect designs approach, builders implement, then the adversarial critic loop kicks in (critic tries to break it, builder fixes, repeat until PASS), then tester runs full test suite, reviewer does final pass, author updates docs. Runs unattended.
+**`/build`** — Takes a plan file and runs the full pipeline: Explorer maps codebase, the architect skill designs the approach, builders implement, then the adversarial Critic loop kicks in (Critic tries to break it, builder fixes, repeat until PASS), then the test suite runs, the review skill does a final pass, and the author skill updates docs. Runs unattended.
 
 **`/review`** — For code you wrote yourself without using /build. Runs the adversarial critic loop to stress-test your diff before merging.
 
 ```
 ┌─────────────────────────────────┐
-│           Explorer              │
+│           Explorer              │  ← real agent (Haiku)
 │     Maps the codebase           │
 └────────────────┬────────────────┘
                  ▼
-┌─────────────────────────────────┐
-│           Architect             │
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│      Architect  [skill]         │  ← skill-backed role
 │    Designs the approach         │
-└────────────────┬────────────────┘
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
                  ▼
 ┌─────────────────────────────────┐
 │           Builders              │
@@ -62,30 +62,55 @@ You describe what you want. The pipeline handles the rest.
 └────────────────┬────────────────┘
                  ▼
 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
-  Critic ←→ Builders (loop)
+  Critic ←→ Builders (loop)         ← real agent (Opus)
   FAIL? Fix and resubmit.
   PASS? Move on.
 └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
                  ▼
-┌─────────────────────────────────┐
-│           Tester                │
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│       Tester  [skill]           │  ← skill-backed role
 │    Runs full test suite         │
-└────────────────┬────────────────┘
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
                  ▼
-┌─────────────────────────────────┐
-│           Reviewer              │
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│      Reviewer  [skill]          │  ← skill-backed role
 │   Structured code review        │
-└────────────────┬────────────────┘
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
                  ▼
-┌─────────────────────────────────┐
-│           Author                │
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│       Author  [skill]           │  ← skill-backed role
 │    Updates docs & changelog     │
-└─────────────────────────────────┘
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+
+Solid border = real agent · Dashed border = skill-backed pipeline role
 ```
 
 The whole thing runs unattended. You come back to a branch that's been built, challenged, fixed, tested, reviewed, and documented.
 
 See the full [/build pipeline reference](https://timgranlundmarsden.github.io/claude-agent-flow/build-pipeline.html) for details on each phase.
+
+---
+
+## Works With Any Stack
+
+Agent Flow is technology-agnostic. The same pipeline works whether your project is React, Vue, Angular, plain HTML, Python, Go, Rust, .NET, Ruby — or anything else.
+
+**No assumptions.** Builder agents don't assume your test runner is `npm test` or your linter is ESLint. They read `TECHSTACK.md` — a file at your project root — to learn what your project actually uses.
+
+**TECHSTACK.md** is auto-generated on first pipeline run. The explorer agent scans your codebase (CLAUDE.md, package files, config files, code patterns) and proposes a stack profile:
+
+- Languages, frameworks, and runtimes
+- Test runner command (the exact command your project uses)
+- Linter and type checker
+- Database engine
+- CSS/styling approach
+- Conventions and principles (including future intentions)
+
+You can hand-edit TECHSTACK.md at any time. Manual edits are authoritative — the explorer will never overwrite your changes without asking. It also works as a "desire sheet": declare a technology you intend to use before you've written a line of it, and agents will follow your direction.
+
+**Example:** A Python/FastAPI project with pytest gets agents that run `pytest` instead of `npm test`. A Go project gets agents that check `go test ./...`. A polyglot monorepo with TypeScript frontend and Rust backend gets both.
+
+The plugin itself uses Bash, Python, BATS, and ShellCheck — no Node, no Python web framework. TECHSTACK.md was generated automatically on first run.
 
 ---
 
@@ -123,7 +148,7 @@ The pipeline will ask you questions, explore approaches, and produce a structure
 /build @plans/2026-04-09-1430-user-profile-page.md
 ```
 
-Sit back. The explorer maps your codebase, the architect designs the approach, the builders implement it, the critic tries to break it, the tester runs the full suite, and the reviewer signs off. You come back to a branch ready for review.
+Sit back. Explorer maps your codebase, the architect skill designs the approach, builders implement, the Critic tries to break it, the test suite runs, and the review skill signs off. You come back to a branch ready for review.
 
 **Review your own work:**
 
@@ -175,7 +200,6 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | macOS (Intel & Apple Silicon) | ✓ Supported | |
 | Linux — Ubuntu / Debian | ✓ Supported | |
 | Linux — other distros | ⚠ Untested | Requires apt-get; dnf / yum / pacman not supported |
-| Windows (native) | 🔜 Coming soon | Not yet supported |
 | Windows WSL2 — Ubuntu | ✓ Supported | Run as Ubuntu inside WSL2 |
 
 > Windows users: Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) with Ubuntu, then run the installer from the Ubuntu terminal.
@@ -235,24 +259,27 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 
 ## What You Get
 
-### 12 Agents
+### 3 Agents
 
 | Agent | Role |
 |-------|------|
-| orchestrator | Routes work through the pipeline; never writes code |
-| explorer | Codebase reconnaissance and context gathering |
-| architect | Design decisions and implementation blueprints |
-| ideator | Feature ideation and creative problem-solving |
-| researcher | External research and technology validation |
-| frontend | UI, CSS, and client-side implementation |
-| backend | APIs, services, and server-side implementation |
-| storage | Database schema and RLS policies (sole owner) |
-| tester | Test creation and full test suite execution |
-| critic | Adversarial code review (integrity-protected verdict) |
-| reviewer | Final review pass before completion |
-| author | Documentation and changelog authoring |
+| explorer | Read-only codebase navigator — maps files, dependencies, and patterns |
+| critic | Adversarial code review — actively tries to break code; integrity-protected verdict |
+| researcher | External research — live documentation lookup and library comparison |
 
-### 15 Commands
+### Domain Skills (auto-loaded by builders)
+
+| Skill | Covers |
+|-------|--------|
+| `frontend-rules` | UI components, CSS, client-side state |
+| `backend-rules` | API routes, business logic, auth |
+| `storage-rules` | Database schema and RLS policies |
+| `testing-rules` | Test creation and full suite execution |
+| `review-rules` | Standards checking — BLOCKER / WARNING / SUGGESTION |
+| `author-rules` | Documentation and changelog authoring |
+| `critic-rules` | Adversarial evaluation standards |
+
+### 14 Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -270,11 +297,10 @@ curl -fsSL https://raw.githubusercontent.com/timgranlundmarsden/claude-agent-flo
 | `/token-analyser` | Analyse token usage and costs |
 | `/sync-plugin-skills` | Sync skills from vendor plugins |
 | `/plugin-repo-sync` | Sync to public plugin repository |
-| `/diagnostic` | Report agent-flow installation health |
 
-### 18 Skills
+### 28 Skills
 
-`agent-development`, `ascii-box-tables`, `backlog-md`, `backlog-tpm`, `brainstorming`, `command-development`, `external-code-review`, `frontend-design`, `hook-development`, `mcp-integration`, `playwright-cli`, `playwright-cli-helpers`, `plugin-settings`, `plugin-structure`, `skill-development`, `sync-plugin-skills`, `token-analyser`, `ways-of-working`
+`agent-development`, `agent-flow-init-check`, `ascii-box-tables`, `author-rules`, `backend-rules`, `backlog-md`, `backlog-tpm`, `brainstorming`, `command-development`, `critic-rules`, `external-code-review`, `frontend-design`, `frontend-rules`, `hook-development`, `log-visualiser-converter`, `mcp-integration`, `playwright-cli`, `playwright-cli-helpers`, `plugin-settings`, `plugin-structure`, `review-rules`, `skill-development`, `storage-rules`, `sync-plugin-skills`, `testing-rules`, `token-analyser`, `ways-of-working`, `web-search`
 
 ---
 
